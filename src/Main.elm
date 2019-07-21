@@ -4,13 +4,14 @@ import API
 import Browser
 import Browser.Navigation
 import Dict exposing (Dict)
+import GraphQL
 import Html exposing (Html, a, button, div, form, h1, h3, h5, input, label, main_, nav, node, p, pre, small, text, ul)
 import Html.Attributes exposing (class, for, href, id, rel, style, type_, value)
 import Html.Events exposing (onBlur, onClick, onInput)
 import Http
+import Json.Decode
 import Task exposing (Task)
 import Time
-import Types
 import Url
 
 
@@ -34,10 +35,10 @@ type alias Alert =
 type alias Model =
     { navKey : Browser.Navigation.Key
     , alert : Maybe Alert
-    , schema : Types.DataSchema
-    , types : Dict String Types.SchemaType
-    , schemaType : Maybe Types.SchemaType
-    , typeField : Maybe Types.TypeField
+    , schema : Maybe GraphQL.Schema
+    , types : Dict String GraphQL.Type
+    , type_ : Maybe GraphQL.Type
+    , field : Maybe GraphQL.Field
     , apiURL : String
     }
 
@@ -52,8 +53,8 @@ type Msg
     = OnUrlRequest Browser.UrlRequest
     | OnUrlChange Url.Url
     | ModelChanged (Model -> String -> Model) String
-    | OnHttpResponse (Result Http.Error Types.DataSchema)
-    | ChosenSchema ( Types.TypeField, Types.SchemaType )
+    | OnHttpResponse (Result Http.Error String)
+    | ChosenSchema GraphQL.Field
     | ApiUrlUpdated
 
 
@@ -63,11 +64,12 @@ init flags url navKey =
         model =
             { navKey = navKey
             , alert = Nothing
-            , schema = { mutationType = Nothing, queryType = Nothing, types = [] }
+            , schema = Nothing
             , types = Dict.empty
-            , schemaType = Nothing
-            , typeField = Nothing
+            , type_ = Nothing
+            , field = Nothing
 
+            -- , apiURL = "https://gitlab.com/api/graphql"
             -- , apiURL = "https://www.graphqlhub.com/playground"
             , apiURL = "https://metaphysics-production.artsy.net/"
 
@@ -97,40 +99,51 @@ view model =
                     ]
                 ]
             , div [ class "row mt-5" ]
-                [ div [ class "col-3" ] [ viewSchema (Types.queries model.types model.schema) ]
-                , div [ class "col-8" ]
-                    [ case ( model.typeField, model.schemaType ) of
-                        ( Just typeField, Just schemaType ) ->
-                            viewSchemaForm typeField schemaType
+                [ div [ class "col-3" ]
+                    [ model.schema
+                        |> Maybe.map .queryType
+                        |> Maybe.map (\t -> GraphQL.queries t model.types)
+                        |> Maybe.map viewSchema
+                        |> Maybe.withDefault (text "")
+                    ]
+                , div [ class "col" ]
+                    [ div [ class "row" ]
+                        (case ( model.field, model.type_ ) of
+                            ( Just field, Just type_ ) ->
+                                [ div [ class "col" ]
+                                    [ viewSchemaForm field type_ ]
+                                , div [ class "col-4" ] [ pre [] [ text "hello" ] ]
+                                ]
 
-                        _ ->
-                            text ""
+                            _ ->
+                                []
+                        )
                     ]
                 ]
             ]
         ]
 
 
-viewSchemaForm : Types.TypeField -> Types.SchemaType -> Html Msg
-viewSchemaForm typeField schemaType =
+viewSchemaForm : GraphQL.Field -> GraphQL.Type -> Html Msg
+viewSchemaForm field type_ =
     div []
-        [ h3 [] [ text (Maybe.withDefault schemaType.name typeField.name) ]
-        , p [] [ text (Maybe.withDefault "" typeField.description) ]
+        [ h3 [] [ text field.name ]
+        , p [] [ text (Maybe.withDefault "" field.description) ]
         , form []
-            [ div [] (List.indexedMap formField (Maybe.withDefault [] schemaType.fields))
-            , button [ class "btn btn-primary" ] [ text "Submit" ]
+            [-- div [] (List.indexedMap formField (Maybe.withDefault [] type_.fields))
+             -- , button [ class "btn btn-primary" ] [ text "Submit" ]
             ]
         ]
 
 
-formField : Int -> Types.TypeField -> Html Msg
+formField : Int -> GraphQL.Field -> Html Msg
 formField index field =
     let
         fieldName =
             "field-" ++ String.fromInt index
     in
     div [ class "form-group" ]
-        [ label [ for fieldName ] [ text (Maybe.withDefault "fieldName" field.name) ]
+        [ label [ for fieldName ] [ text field.name ]
         , input [ type_ "text", class "form-control" ] []
         , small [ class "form-text text-muted" ] [ text (Maybe.withDefault "" field.description) ]
         ]
@@ -147,27 +160,23 @@ viewAlert alertMaybe =
             text ""
 
 
-viewSchema : List ( Types.TypeField, Types.SchemaType ) -> Html Msg
+viewSchema : List GraphQL.Field -> Html Msg
 viewSchema list =
-    let
-        _ =
-            Debug.log "viewSchema" list
-    in
     div [ class "list-group" ]
         (List.map viewSchemaType list)
 
 
-viewSchemaType : ( Types.TypeField, Types.SchemaType ) -> Html Msg
-viewSchemaType ( typeField, schemaType ) =
+viewSchemaType : GraphQL.Field -> Html Msg
+viewSchemaType field =
     a
         [ class "list-group-item list-group-item-action"
         , href "#"
-        , onClick (ChosenSchema ( typeField, schemaType ))
+        , onClick (ChosenSchema field)
         ]
-        [ h5 [ class "mb-1" ] [ text (Maybe.withDefault schemaType.name typeField.name) ]
-        , p [ class "mb-1" ] [ text (Maybe.withDefault "" schemaType.description) ]
+        [ h5 [ class "mb-1" ] [ text field.name ]
+        , p [ class "mb-1" ] [ text (Maybe.withDefault "" field.description) ]
 
-        -- , small [] [ pre [] [ text (Debug.toString schemaType) ] ]
+        -- , small [] [ pre [] [ text (Debug.toString type_) ] ]
         ]
 
 
@@ -188,14 +197,28 @@ update msg model =
         ModelChanged function string ->
             ( function model string, Cmd.none )
 
-        OnHttpResponse (Ok schema) ->
-            ( { model | alert = Nothing, schema = schema, types = Types.introspectedDict schema }, Cmd.none )
+        OnHttpResponse (Ok string) ->
+            case Json.Decode.decodeString GraphQL.decodeResponse string of
+                Err oops ->
+                    ( { model | alert = Just { category = "danger", message = Json.Decode.errorToString oops } }, Cmd.none )
+
+                Ok resp ->
+                    let
+                        newTypes =
+                            GraphQL.typesDict resp.data.schema.types Dict.empty
+                    in
+                    ( { model | alert = Nothing, schema = Just resp.data.schema, types = newTypes }, Cmd.none )
 
         OnHttpResponse (Err oops) ->
             ( { model | alert = Just { category = "danger", message = Debug.toString oops } }, Cmd.none )
 
-        ChosenSchema ( typeField, schemaType ) ->
-            ( { model | schemaType = Just schemaType, typeField = Just typeField }, Cmd.none )
+        ChosenSchema field ->
+            ( { model
+                | type_ = Debug.log "type_" (GraphQL.fieldType model.types field)
+                , field = Debug.log "field" (Just field)
+              }
+            , Cmd.none
+            )
 
         ApiUrlUpdated ->
             ( model, introspect model )

@@ -2,123 +2,25 @@ module API exposing
     ( httpJsonBodyResolver
     , httpStringBodyResolver
     , introspect
-    , introspectionQuery
     )
 
+import GraphQL
 import Http
 import Json.Decode
 import Json.Encode
 import Task exposing (Task)
-import Types
 
 
-introspect : String -> Task Http.Error Types.DataSchema
+introspect : String -> Task Http.Error String
 introspect targetURL =
     Http.task
         { method = "POST"
         , headers = []
         , url = targetURL
-        , body = Http.jsonBody (Json.Encode.object [ ( "query", Json.Encode.string introspectionQuery ) ])
-        , resolver = Http.stringResolver (httpJsonBodyResolver (Types.decodeIntrospected |> Json.Decode.map (\a -> a.data.schema)))
+        , body = Http.jsonBody (Json.Encode.object [ ( "query", Json.Encode.string GraphQL.introspectionQuery ) ])
+        , resolver = Http.stringResolver httpStringBodyResolver
         , timeout = Just 5000
         }
-
-
-introspectionQuery : String
-introspectionQuery =
-    """
-    query IntrospectionQuery {
-      __schema {
-        queryType { name }
-        mutationType { name }
-        subscriptionType { name }
-        types {
-          ...FullType
-        }
-        directives {
-          name
-          description
-          locations
-          args {
-            ...InputValue
-          }
-        }
-      }
-    }
-
-    fragment FullType on __Type {
-      kind
-      name
-      description
-      fields(includeDeprecated: true) {
-        name
-        description
-        args {
-          ...InputValue
-        }
-        type {
-          ...TypeRef
-        }
-        isDeprecated
-        deprecationReason
-      }
-      inputFields {
-        ...InputValue
-      }
-      interfaces {
-        ...TypeRef
-      }
-      enumValues(includeDeprecated: true) {
-        name
-        description
-        isDeprecated
-        deprecationReason
-      }
-      possibleTypes {
-        ...TypeRef
-      }
-    }
-
-    fragment InputValue on __InputValue {
-      name
-      description
-      type { ...TypeRef }
-      defaultValue
-    }
-
-    fragment TypeRef on __Type {
-      kind
-      name
-      ofType {
-        kind
-        name
-        ofType {
-          kind
-          name
-          ofType {
-            kind
-            name
-            ofType {
-              kind
-              name
-              ofType {
-                kind
-                name
-                ofType {
-                  kind
-                  name
-                  ofType {
-                    kind
-                    name
-                  }
-                }
-              }
-            }
-          }
-        }
-      }
-    }
-    """
 
 
 
