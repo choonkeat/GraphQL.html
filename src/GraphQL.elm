@@ -1,8 +1,9 @@
 module GraphQL exposing
     ( Field
+    , InputValue
     , Response
     , Schema
-    , Type
+    , Type(..)
     , decodeResponse
     , fieldType
     , introspectionQuery

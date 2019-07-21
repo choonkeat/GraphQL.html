@@ -5,12 +5,13 @@ import Browser
 import Browser.Navigation
 import Dict exposing (Dict)
 import GraphQL
-import Html exposing (Html, a, button, div, form, h1, h3, h5, input, label, main_, nav, node, p, pre, small, text, ul)
+import Html exposing (Html, a, button, div, form, h1, h3, h5, hr, input, label, main_, nav, node, p, pre, small, text, ul)
 import Html.Attributes exposing (class, for, href, id, rel, style, type_, value)
 import Html.Events exposing (onBlur, onClick, onInput)
 import Http
 import Json.Decode
 import Task exposing (Task)
+import Templates
 import Time
 import Url
 
@@ -76,7 +77,11 @@ init flags url navKey =
             -- , apiURL = "https://graphql.anilist.co/"
             }
     in
-    ( model, introspect model )
+    ( model
+    , Task.succeed Templates.artsyJson
+        -- |> Task.andThen (\_ -> API.introspect model.apiURL)
+        |> Task.attempt OnHttpResponse
+    )
 
 
 view : Model -> Browser.Document Msg
@@ -99,53 +104,100 @@ view model =
                     ]
                 ]
             , div [ class "row mt-5" ]
-                [ div [ class "col-3" ]
+                [ div [ class "col-3", style "word-break" "break-all" ]
                     [ model.schema
                         |> Maybe.map .queryType
                         |> Maybe.map (\t -> GraphQL.queries t model.types)
-                        |> Maybe.map viewSchema
+                        |> Maybe.map viewQueriesNav
                         |> Maybe.withDefault (text "")
                     ]
                 , div [ class "col" ]
-                    [ div [ class "row" ]
-                        (case ( model.field, model.type_ ) of
-                            ( Just field, Just type_ ) ->
-                                [ div [ class "col" ]
-                                    [ viewSchemaForm field type_ ]
-                                , div [ class "col-4" ] [ pre [] [ text "hello" ] ]
-                                ]
-
-                            _ ->
-                                []
-                        )
+                    [ Maybe.map viewQueryDetail model.field
+                        |> Maybe.withDefault (text "")
                     ]
                 ]
             ]
         ]
 
 
-viewSchemaForm : GraphQL.Field -> GraphQL.Type -> Html Msg
-viewSchemaForm field type_ =
-    div []
-        [ h3 [] [ text field.name ]
-        , p [] [ text (Maybe.withDefault "" field.description) ]
-        , form []
-            [-- div [] (List.indexedMap formField (Maybe.withDefault [] type_.fields))
-             -- , button [ class "btn btn-primary" ] [ text "Submit" ]
+viewQueryDetail : GraphQL.Field -> Html Msg
+viewQueryDetail field =
+    div [ class "row" ]
+        [ div [ class "col" ]
+            [ viewSchemaForm field
+            ]
+        , div [ class "col-4" ]
+            [ pre [ style "white-space" "pre-wrap" ] [ text (Debug.toString field) ]
             ]
         ]
 
 
-formField : Int -> GraphQL.Field -> Html Msg
-formField index field =
-    let
-        fieldName =
-            "field-" ++ String.fromInt index
-    in
+viewSchemaForm : GraphQL.Field -> Html Msg
+viewSchemaForm field =
+    div []
+        [ h3 [] [ text field.name ]
+        , p [] [ text (Maybe.withDefault "" field.description) ]
+        , form []
+            [ div [] (List.indexedMap formField field.args)
+            , button [ class "btn btn-primary" ] [ text "Submit" ]
+            ]
+        ]
+
+
+formFieldInput : String -> GraphQL.InputValue -> List (Html Msg)
+formFieldInput fieldName inputValue =
+    case inputValue.type_ of
+        GraphQL.TypeScalar attrs ->
+            case attrs.name of
+                Just "Boolean" ->
+                    [ div [ class "form-check" ]
+                        [ input [ type_ "checkbox", class "form-check-input" ] []
+                        , label [ for fieldName ] [ text inputValue.name ]
+                        ]
+                    ]
+
+                Just "Int" ->
+                    [ label [ for fieldName ] [ text inputValue.name ]
+                    , input [ class "form-control", type_ "number" ] []
+                    ]
+
+                _ ->
+                    [ label [ for fieldName ] [ text inputValue.name ]
+                    , input [ class "form-control", type_ (String.toLower (Maybe.withDefault "text" attrs.name)) ] []
+                    ]
+
+        GraphQL.TypeObject attrs ->
+            [ pre [ style "white-space" "pre-wrap" ] [ text (Debug.toString attrs) ] ]
+
+        GraphQL.TypeInterface attrs ->
+            [ pre [ style "white-space" "pre-wrap" ] [ text (Debug.toString attrs) ] ]
+
+        GraphQL.TypeUnion attrs ->
+            [ pre [ style "white-space" "pre-wrap" ] [ text (Debug.toString attrs) ] ]
+
+        GraphQL.TypeEnum attrs ->
+            [ pre [ style "white-space" "pre-wrap" ] [ text (Debug.toString attrs) ] ]
+
+        GraphQL.TypeInput attrs ->
+            [ pre [ style "white-space" "pre-wrap" ] [ text (Debug.toString attrs) ] ]
+
+        GraphQL.TypeNotNull attrs ->
+            [ label [ for fieldName ] [ text inputValue.name ]
+            , input [ class "form-control", type_ (String.toLower (Maybe.withDefault "text" attrs.name)) ] []
+            ]
+
+        GraphQL.TypeList attrs ->
+            [ pre [ style "white-space" "pre-wrap" ] [ text (Debug.toString attrs) ] ]
+
+
+formField : Int -> GraphQL.InputValue -> Html Msg
+formField index inputValue =
     div [ class "form-group" ]
-        [ label [ for fieldName ] [ text field.name ]
-        , input [ type_ "text", class "form-control" ] []
-        , small [ class "form-text text-muted" ] [ text (Maybe.withDefault "" field.description) ]
+        [ div [] (formFieldInput ("field-" ++ String.fromInt index) inputValue)
+        , small [ class "form-text text-muted" ]
+            [ text (Maybe.withDefault "" inputValue.description)
+            , pre [ style "white-space" "pre-wrap" ] [ text (Debug.toString inputValue.type_) ]
+            ]
         ]
 
 
@@ -160,9 +212,9 @@ viewAlert alertMaybe =
             text ""
 
 
-viewSchema : List GraphQL.Field -> Html Msg
-viewSchema list =
-    div [ class "list-group" ]
+viewQueriesNav : List GraphQL.Field -> Html Msg
+viewQueriesNav list =
+    div [ class "list-group", style "overflow-y" "scroll", style "height" "30em" ]
         (List.map viewSchemaType list)
 
 
@@ -175,8 +227,6 @@ viewSchemaType field =
         ]
         [ h5 [ class "mb-1" ] [ text field.name ]
         , p [ class "mb-1" ] [ text (Maybe.withDefault "" field.description) ]
-
-        -- , small [] [ pre [] [ text (Debug.toString type_) ] ]
         ]
 
 
@@ -221,19 +271,12 @@ update msg model =
             )
 
         ApiUrlUpdated ->
-            ( model, introspect model )
+            ( model
+            , API.introspect model.apiURL
+                |> Task.attempt OnHttpResponse
+            )
 
 
 subscriptions : Model -> Sub Msg
 subscriptions model =
     Sub.none
-
-
-
---
-
-
-introspect : Model -> Cmd Msg
-introspect model =
-    API.introspect model.apiURL
-        |> Task.attempt OnHttpResponse

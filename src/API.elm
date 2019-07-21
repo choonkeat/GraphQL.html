@@ -19,7 +19,7 @@ introspect targetURL =
         , url = targetURL
         , body = Http.jsonBody (Json.Encode.object [ ( "query", Json.Encode.string GraphQL.introspectionQuery ) ])
         , resolver = Http.stringResolver httpStringBodyResolver
-        , timeout = Just 5000
+        , timeout = Just 15000
         }
 
 

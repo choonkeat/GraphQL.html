@@ -1,4 +1,4 @@
-elm-live:
+elm-live: src/Templates.elm
 	mkdir -p public
 	elm-live src/Main.elm \
             --dir public \
@@ -7,3 +7,6 @@ elm-live:
             --proxyHost http://localhost:3000 \
             --pushstate true \
             -- --output=public/client.js
+
+src/Templates.elm: $(shell find templates -iname '*.json')
+	filecontent-as-elm-methods.js templates > src/Templates.elm
