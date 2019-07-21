@@ -6,8 +6,9 @@ module GraphQL exposing
     , Type(..)
     , decodeResponse
     , fieldType
+    , fields
     , introspectionQuery
-    , queries
+    , ofType
     , typeName
     , typesDict
     )
@@ -56,10 +57,10 @@ typeName type_ =
             attrs.name
 
         TypeNotNull attrs ->
-            attrs.name
+            typeName attrs.ofType
 
         TypeList attrs ->
-            attrs.name
+            typeName attrs.ofType
 
 
 typeFields : Type -> List Field
@@ -109,14 +110,21 @@ typesDict typeList sum =
                     typesDict xs (Dict.insert s x sum)
 
 
+ofType : Dict String Type -> Type -> Type
+ofType typeStringDict type_ =
+    typeName type_
+        |> Maybe.andThen (\s -> Dict.get s typeStringDict)
+        |> Maybe.withDefault type_
+
+
 fieldType : Dict String Type -> Field -> Maybe Type
 fieldType typeStringDict field =
     typeName field.type_
         |> Maybe.andThen (\s -> Dict.get s typeStringDict)
 
 
-queries : Type -> Dict String Type -> List Field
-queries type_ typeStringDict =
+fields : Dict String Type -> Type -> List Field
+fields typeStringDict type_ =
     typeName type_
         |> Maybe.andThen (\s -> Dict.get s typeStringDict)
         |> Maybe.map typeFields
@@ -194,14 +202,14 @@ type alias InputAttrs =
 type alias NotNullAttrs =
     { name : Maybe String
     , description : Maybe String
-    , ofType : Maybe Type
+    , ofType : Type
     }
 
 
 type alias ListAttrs =
     { name : Maybe String
     , description : Maybe String
-    , ofType : Maybe Type
+    , ofType : Type
     }
 
 
@@ -387,16 +395,7 @@ decodeSchema =
                     (Json.Decode.field "name" Json.Decode.string)
                     (Json.Decode.maybe (Json.Decode.field "description" Json.Decode.string))
                     (Json.Decode.field "locations" (Json.Decode.list decodeDirectiveLocation))
-                    (Json.Decode.field "args"
-                        (Json.Decode.list
-                            (Json.Decode.map4 InputValue
-                                (Json.Decode.field "name" Json.Decode.string)
-                                (Json.Decode.maybe (Json.Decode.field "description" Json.Decode.string))
-                                (Json.Decode.field "type" decodeType)
-                                (Json.Decode.maybe (Json.Decode.field "defaultValue" Json.Decode.string))
-                            )
-                        )
-                    )
+                    (Json.Decode.field "args" (Json.Decode.list decodeInputValue))
                 )
             )
         )
@@ -446,29 +445,7 @@ decodeObjectAttrs =
     Json.Decode.map4 ObjectAttrs
         (Json.Decode.maybe (Json.Decode.field "name" Json.Decode.string))
         (Json.Decode.maybe (Json.Decode.field "description" Json.Decode.string))
-        (Json.Decode.maybe
-            (Json.Decode.field "fields"
-                (Json.Decode.list
-                    (Json.Decode.map6 Field
-                        (Json.Decode.field "name" Json.Decode.string)
-                        (Json.Decode.maybe (Json.Decode.field "description" Json.Decode.string))
-                        (Json.Decode.field "args"
-                            (Json.Decode.list
-                                (Json.Decode.map4 InputValue
-                                    (Json.Decode.field "name" Json.Decode.string)
-                                    (Json.Decode.maybe (Json.Decode.field "description" Json.Decode.string))
-                                    (Json.Decode.field "type" decodeType)
-                                    (Json.Decode.maybe (Json.Decode.field "defaultValue" Json.Decode.string))
-                                )
-                            )
-                        )
-                        (Json.Decode.field "type" decodeType)
-                        (Json.Decode.field "isDeprecated" Json.Decode.bool)
-                        (Json.Decode.maybe (Json.Decode.field "deprecationReason" Json.Decode.string))
-                    )
-                )
-            )
-        )
+        (Json.Decode.maybe (Json.Decode.field "fields" (Json.Decode.list decodeField)))
         (Json.Decode.maybe (Json.Decode.field "interfaces" (Json.Decode.list decodeType)))
 
 
@@ -477,29 +454,7 @@ decodeInterfaceAttrs =
     Json.Decode.map4 InterfaceAttrs
         (Json.Decode.maybe (Json.Decode.field "name" Json.Decode.string))
         (Json.Decode.maybe (Json.Decode.field "description" Json.Decode.string))
-        (Json.Decode.maybe
-            (Json.Decode.field "fields"
-                (Json.Decode.list
-                    (Json.Decode.map6 Field
-                        (Json.Decode.field "name" Json.Decode.string)
-                        (Json.Decode.maybe (Json.Decode.field "description" Json.Decode.string))
-                        (Json.Decode.field "args"
-                            (Json.Decode.list
-                                (Json.Decode.map4 InputValue
-                                    (Json.Decode.field "name" Json.Decode.string)
-                                    (Json.Decode.maybe (Json.Decode.field "description" Json.Decode.string))
-                                    (Json.Decode.field "type" decodeType)
-                                    (Json.Decode.maybe (Json.Decode.field "defaultValue" Json.Decode.string))
-                                )
-                            )
-                        )
-                        (Json.Decode.field "type" decodeType)
-                        (Json.Decode.field "isDeprecated" Json.Decode.bool)
-                        (Json.Decode.maybe (Json.Decode.field "deprecationReason" Json.Decode.string))
-                    )
-                )
-            )
-        )
+        (Json.Decode.maybe (Json.Decode.field "fields" (Json.Decode.list decodeField)))
         (Json.Decode.maybe (Json.Decode.field "possibleTypes" (Json.Decode.list decodeType)))
 
 
@@ -518,14 +473,7 @@ decodeEnumAttrs =
         (Json.Decode.maybe (Json.Decode.field "description" Json.Decode.string))
         (Json.Decode.maybe
             (Json.Decode.field "enumValues"
-                (Json.Decode.list
-                    (Json.Decode.map4 EnumValue
-                        (Json.Decode.field "name" Json.Decode.string)
-                        (Json.Decode.maybe (Json.Decode.field "description" Json.Decode.string))
-                        (Json.Decode.field "isDeprecated" Json.Decode.bool)
-                        (Json.Decode.maybe (Json.Decode.field "deprecationReason" Json.Decode.string))
-                    )
-                )
+                (Json.Decode.list decodeEnumValue)
             )
         )
 
@@ -535,18 +483,7 @@ decodeInputAttrs =
     Json.Decode.map3 InputAttrs
         (Json.Decode.maybe (Json.Decode.field "name" Json.Decode.string))
         (Json.Decode.maybe (Json.Decode.field "description" Json.Decode.string))
-        (Json.Decode.maybe
-            (Json.Decode.field "inputFields"
-                (Json.Decode.list
-                    (Json.Decode.map4 InputValue
-                        (Json.Decode.field "name" Json.Decode.string)
-                        (Json.Decode.maybe (Json.Decode.field "description" Json.Decode.string))
-                        (Json.Decode.field "type" decodeType)
-                        (Json.Decode.maybe (Json.Decode.field "defaultValue" Json.Decode.string))
-                    )
-                )
-            )
-        )
+        (Json.Decode.maybe (Json.Decode.field "inputFields" (Json.Decode.list decodeInputValue)))
 
 
 decodeNotNullAttrs : Json.Decode.Decoder NotNullAttrs
@@ -554,7 +491,7 @@ decodeNotNullAttrs =
     Json.Decode.map3 NotNullAttrs
         (Json.Decode.maybe (Json.Decode.field "name" Json.Decode.string))
         (Json.Decode.maybe (Json.Decode.field "description" Json.Decode.string))
-        (Json.Decode.maybe (Json.Decode.field "ofType" decodeType))
+        (Json.Decode.field "ofType" decodeType)
 
 
 decodeListAttrs : Json.Decode.Decoder ListAttrs
@@ -562,7 +499,7 @@ decodeListAttrs =
     Json.Decode.map3 ListAttrs
         (Json.Decode.maybe (Json.Decode.field "name" Json.Decode.string))
         (Json.Decode.maybe (Json.Decode.field "description" Json.Decode.string))
-        (Json.Decode.maybe (Json.Decode.field "ofType" decodeType))
+        (Json.Decode.field "ofType" decodeType)
 
 
 decodeField : Json.Decode.Decoder Field
@@ -570,16 +507,7 @@ decodeField =
     Json.Decode.map6 Field
         (Json.Decode.field "name" Json.Decode.string)
         (Json.Decode.maybe (Json.Decode.field "description" Json.Decode.string))
-        (Json.Decode.field "args"
-            (Json.Decode.list
-                (Json.Decode.map4 InputValue
-                    (Json.Decode.field "name" Json.Decode.string)
-                    (Json.Decode.maybe (Json.Decode.field "description" Json.Decode.string))
-                    (Json.Decode.field "type" decodeType)
-                    (Json.Decode.maybe (Json.Decode.field "defaultValue" Json.Decode.string))
-                )
-            )
-        )
+        (Json.Decode.field "args" (Json.Decode.list decodeInputValue))
         (Json.Decode.field "type" decodeType)
         (Json.Decode.field "isDeprecated" Json.Decode.bool)
         (Json.Decode.maybe (Json.Decode.field "deprecationReason" Json.Decode.string))

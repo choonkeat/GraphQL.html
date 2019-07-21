@@ -8,5 +8,5 @@ elm-live: src/Templates.elm
             --pushstate true \
             -- --output=public/client.js
 
-src/Templates.elm: $(shell find templates -iname '*.json')
-	filecontent-as-elm-methods.js templates > src/Templates.elm
+src/Templates.elm: templates $(shell find templates -iname '*.json')
+	node filecontent-as-elm-methods.js templates > src/Templates.elm
