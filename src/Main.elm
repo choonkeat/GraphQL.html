@@ -7,8 +7,8 @@ import Browser.Events exposing (onClick)
 import Browser.Navigation
 import Dict exposing (Dict)
 import GraphQL exposing (typeName)
-import Html exposing (Html, a, button, div, em, form, h1, h3, h5, hr, img, input, label, li, main_, nav, node, option, p, pre, select, small, span, strong, table, tbody, td, text, th, thead, tr, ul)
-import Html.Attributes exposing (attribute, checked, class, disabled, for, href, id, name, placeholder, rel, required, src, style, title, type_, value)
+import Html exposing (Html, a, button, code, div, em, form, h1, h3, h5, hr, img, input, label, li, main_, nav, node, option, p, pre, select, small, span, strong, table, tbody, td, text, textarea, th, thead, tr, ul)
+import Html.Attributes exposing (attribute, checked, class, disabled, for, href, id, name, placeholder, rel, required, src, style, target, title, type_, value)
 import Html.Events exposing (on, onBlur, onClick, onInput, onSubmit)
 import Http
 import Json.Decode
@@ -50,6 +50,7 @@ type alias Model =
     , dstyle : DictRenderStyle
     , graphqlResponseResult : RemoteData.WebData GraphQLResponse
     , apiURL : String
+    , apiHeaders : String
     }
 
 
@@ -126,6 +127,7 @@ init flags url navKey =
             , type_ = Nothing
             , field = Nothing
             , apiURL = "https://metaphysics-production.artsy.net/"
+            , apiHeaders = ""
             , selectionKey = ""
             , selection = Nothing
             , dstyle = DictAsCard
@@ -157,7 +159,8 @@ view model =
             , viewAlert model.alert
             , form []
                 [ div [ class "form-group" ]
-                    [ input
+                    [ label [] [ text "GraphQL Endpoint" ]
+                    , input
                         [ type_ "text"
                         , class "form-control"
                         , value model.apiURL
@@ -165,6 +168,23 @@ view model =
                         , onInput (ModelChanged (\m s -> { m | apiURL = s }))
                         ]
                         []
+                    , small [ class "text-muted" ]
+                        [ text "See "
+                        , a [ href "http://apis.guru/graphql-apis/", target "_blank" ] [ text "http://apis.guru/graphql-apis/" ]
+                        , text " for more APIs"
+                        ]
+                    ]
+                , div [ class "form-group" ]
+                    [ label [] [ text "HTTP Request Headers" ]
+                    , textarea
+                        [ class "form-control"
+                        , onInput (ModelChanged (\m s -> { m | apiHeaders = s }))
+                        ]
+                        [ text model.apiHeaders ]
+                    , small [ class "text-muted" ]
+                        [ text "e.g. "
+                        , code [] [ text "Authorization: Bearer abc1234" ]
+                        ]
                     ]
                 , div [ class "form-check" ]
                     [ input
@@ -176,7 +196,7 @@ view model =
                         , onClick (ChosenDictRenderStyle DictAsCard)
                         ]
                         []
-                    , label [ class "form-check-label", for "renderDictAsCard" ] [ text "Cards" ]
+                    , label [ class "form-check-label", for "renderDictAsCard" ] [ text "Display data as cards" ]
                     ]
                 , div [ class "form-check" ]
                     [ input
@@ -188,7 +208,7 @@ view model =
                         , onClick (ChosenDictRenderStyle DictAsTable)
                         ]
                         []
-                    , label [ class "form-check-label", for "renderDictAsTable" ] [ text "Tables" ]
+                    , label [ class "form-check-label", for "renderDictAsTable" ] [ text "Display data as table rows" ]
                     ]
                 ]
             , div [ class "row mt-5" ]
@@ -213,8 +233,8 @@ view model =
                 , div [ class "col-9" ]
                     [ case model.selection of
                         Just (SelectionNest record) ->
-                            div [ class "row" ]
-                                [ form [ class "col-6", onSubmit FormSubmitted ]
+                            div []
+                                [ form [ onSubmit FormSubmitted ]
                                     [ renderForm typeLookup [] record.field.name record
                                     , case model.graphqlResponseResult of
                                         RemoteData.Loading ->
@@ -223,8 +243,9 @@ view model =
                                         _ ->
                                             button [ type_ "submit", class "btn btn-primary" ] [ text "Submit" ]
                                     ]
-                                , pre [ class "col-6 pt-3 pb-3", style "white-space" "pre-wrap", style "background-color" "lightgray" ]
-                                    [ text (formQuery record.field.name record) ]
+
+                                -- , pre [ class "col-6 pt-3 pb-3", style "white-space" "pre-wrap", style "background-color" "lightgray" ]
+                                --     [ text (formQuery record.field.name record) ]
                                 ]
 
                         _ ->
@@ -500,12 +521,13 @@ update msg model =
                 , selectionKey = heading
                 , selection = newSelection
                 , graphqlResponseResult = RemoteData.NotAsked
+                , alert = Nothing
               }
             , Cmd.none
             )
 
         ApiUrlUpdated ->
-            ( model
+            ( { model | alert = Nothing }
             , API.introspect model.apiURL
                 |> Task.attempt OnHttpResponse
             )
@@ -513,22 +535,22 @@ update msg model =
         FormSubmitted ->
             case model.selection of
                 Just selection ->
-                    ( { model | graphqlResponseResult = RemoteData.Loading }
-                    , httpRequest model.apiURL selection
+                    ( { model | graphqlResponseResult = RemoteData.Loading, alert = Nothing }
+                    , httpRequest model.apiURL (textareaToHttpHeaders model.apiHeaders) selection
                         |> Task.attempt OnFormResponse
                     )
 
                 Nothing ->
-                    ( model, Cmd.none )
+                    ( { model | alert = Nothing }, Cmd.none )
 
         OnFormResponse (Ok data) ->
-            ( { model | graphqlResponseResult = RemoteData.fromResult (Ok data) }, Cmd.none )
+            ( { model | graphqlResponseResult = RemoteData.fromResult (Ok data), alert = Nothing }, Cmd.none )
 
         OnFormResponse (Err err) ->
             ( { model | alert = Just { category = "danger", message = Debug.toString err }, graphqlResponseResult = RemoteData.Failure err }, Cmd.none )
 
         ChosenDictRenderStyle dstyle ->
-            ( { model | dstyle = dstyle }, Cmd.none )
+            ( { model | dstyle = dstyle, alert = Nothing }, Cmd.none )
 
 
 subscriptions : Model -> Sub Msg
@@ -543,8 +565,30 @@ subscriptions model =
 --
 
 
-httpRequest : String -> Selection -> Task Http.Error GraphQLResponse
-httpRequest apiEndpoint selection =
+textareaToHttpHeaders : String -> List Http.Header
+textareaToHttpHeaders string =
+    let
+        delimiter =
+            ": "
+    in
+    String.split "\n" (String.trim string)
+        |> List.foldl
+            (\kv sum ->
+                case String.split delimiter (String.trim kv) of
+                    "" :: xs ->
+                        sum
+
+                    k :: vs ->
+                        List.append sum [ Http.header k (String.join delimiter vs) ]
+
+                    _ ->
+                        sum
+            )
+            []
+
+
+httpRequest : String -> List Http.Header -> Selection -> Task Http.Error GraphQLResponse
+httpRequest apiEndpoint headerKeyValues selection =
     case selectionQuery "" selection of
         Nothing ->
             Task.fail (Http.BadBody "Incomplete request form")
@@ -558,7 +602,7 @@ httpRequest apiEndpoint selection =
             in
             Http.task
                 { method = "POST"
-                , headers = []
+                , headers = headerKeyValues
                 , url = apiEndpoint
                 , body = Http.jsonBody httpBody
                 , resolver = Http.stringResolver (API.httpJsonBodyResolver decodeGraphQLResponse)
