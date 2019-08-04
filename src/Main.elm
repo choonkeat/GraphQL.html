@@ -67,9 +67,36 @@ type Msg
     | OnFormResponse (Result Http.Error String)
 
 
+type DictValue
+    = StringValue String
+    | BoolValue Bool
+    | IntValue Int
+    | FloatValue Float
+    | ListValue (List DictValue)
+    | NestedValue (Dict String DictValue)
+    | NullValue
+
+
+jsonDecodeDictValue : Json.Decode.Decoder DictValue
+jsonDecodeDictValue =
+    Json.Decode.oneOf
+        [ Json.Decode.map StringValue Json.Decode.string
+        , Json.Decode.map BoolValue Json.Decode.bool
+        , Json.Decode.map IntValue Json.Decode.int
+        , Json.Decode.map FloatValue Json.Decode.float
+        , Json.Decode.map ListValue (Json.Decode.lazy (\_ -> Json.Decode.list jsonDecodeDictValue))
+        , Json.Decode.map NestedValue (Json.Decode.lazy (\_ -> Json.Decode.dict jsonDecodeDictValue))
+        , Json.Decode.null NullValue
+        ]
+
+
 init : Flags -> Url.Url -> Browser.Navigation.Key -> ( Model, Cmd Msg )
 init flags url navKey =
     let
+        _ =
+            Debug.log "response"
+                (Json.Decode.decodeString (Json.Decode.dict jsonDecodeDictValue) Templates.artsydataJson)
+
         model =
             { navKey = navKey
             , alert = Nothing
