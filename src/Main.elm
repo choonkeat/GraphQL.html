@@ -6,7 +6,7 @@ import Browser
 import Browser.Navigation
 import Dict exposing (Dict)
 import GraphQL exposing (typeName)
-import Html exposing (Html, a, button, div, form, h1, h3, h5, hr, input, label, li, main_, nav, node, option, p, pre, select, small, span, strong, table, td, text, th, tr, ul)
+import Html exposing (Html, a, button, div, em, form, h1, h3, h5, hr, input, label, li, main_, nav, node, option, p, pre, select, small, span, strong, table, tbody, td, text, th, thead, tr, ul)
 import Html.Attributes exposing (attribute, checked, class, disabled, for, href, id, name, placeholder, rel, required, style, title, type_, value)
 import Html.Events exposing (on, onBlur, onClick, onInput, onSubmit)
 import Http
@@ -46,9 +46,30 @@ type alias Model =
     , field : Maybe GraphQL.Field
     , selectionKey : String
     , selection : Maybe Selection
-    , selectionResult : RemoteData.WebData DictValue
+    , graphqlResponseResult : RemoteData.WebData GraphQLResponse
     , apiURL : String
     }
+
+
+type alias GraphQLResponse =
+    { data : Maybe DictValue
+    , errors : Maybe (List { message : String })
+    }
+
+
+decodeGraphQLResponse : Json.Decode.Decoder GraphQLResponse
+decodeGraphQLResponse =
+    Json.Decode.map2 GraphQLResponse
+        (Json.Decode.maybe (Json.Decode.field "data" jsonDecodeDictValue))
+        (Json.Decode.maybe
+            (Json.Decode.field "errors"
+                (Json.Decode.list
+                    (Json.Decode.map (\s -> { message = s })
+                        (Json.Decode.field "message" Json.Decode.string)
+                    )
+                )
+            )
+        )
 
 
 type alias Flags =
@@ -65,29 +86,29 @@ type Msg
     | ChosenSchema String GraphQL.Field
     | ApiUrlUpdated
     | FormSubmitted
-    | OnFormResponse (Result Http.Error DictValue)
+    | OnFormResponse (Result Http.Error GraphQLResponse)
 
 
 type DictValue
-    = StringValue String
+    = NullValue
+    | StringValue String
     | BoolValue Bool
     | IntValue Int
     | FloatValue Float
     | ListValue (List DictValue)
     | NestedValue (Dict String DictValue)
-    | NullValue
 
 
 jsonDecodeDictValue : Json.Decode.Decoder DictValue
 jsonDecodeDictValue =
     Json.Decode.oneOf
-        [ Json.Decode.map StringValue Json.Decode.string
+        [ Json.Decode.null NullValue
+        , Json.Decode.map StringValue Json.Decode.string
         , Json.Decode.map BoolValue Json.Decode.bool
         , Json.Decode.map IntValue Json.Decode.int
         , Json.Decode.map FloatValue Json.Decode.float
         , Json.Decode.map ListValue (Json.Decode.lazy (\_ -> Json.Decode.list jsonDecodeDictValue))
         , Json.Decode.map NestedValue (Json.Decode.lazy (\_ -> Json.Decode.dict jsonDecodeDictValue))
-        , Json.Decode.null NullValue
         ]
 
 
@@ -104,8 +125,8 @@ init flags url navKey =
             , apiURL = "https://metaphysics-production.artsy.net/"
             , selectionKey = ""
             , selection = Nothing
-            , selectionResult =
-                Json.Decode.decodeString jsonDecodeDictValue Templates.artsydataJson
+            , graphqlResponseResult =
+                Json.Decode.decodeString decodeGraphQLResponse Templates.artsydataJson
                     |> Result.mapError (Json.Decode.errorToString >> Http.BadBody)
                     |> RemoteData.fromResult
             }
@@ -173,10 +194,32 @@ view model =
 
                         _ ->
                             text ""
-                    , renderRemote renderDictValue model.selectionResult
+                    , renderRemote renderGraphqlResponse model.graphqlResponseResult
                     ]
                 ]
             ]
+        ]
+
+
+renderGraphqlResponse : GraphQLResponse -> Html Msg
+renderGraphqlResponse graphQLResponse =
+    div []
+        [ case graphQLResponse.errors of
+            Just (x :: xs) ->
+                div []
+                    (x
+                        :: xs
+                        |> List.map (\err -> viewAlert (Just { category = "danger", message = err.message }))
+                    )
+
+            _ ->
+                text ""
+        , case graphQLResponse.data of
+            Just dictValue ->
+                renderDictValue dictValue
+
+            Nothing ->
+                text ""
         ]
 
 
@@ -184,10 +227,13 @@ renderDictValue : DictValue -> Html Msg
 renderDictValue dv =
     let
         raw s =
-            pre [ class "pt-3 pb-3", style "white-space" "pre-wrap", style "background-color" "lightgray" ]
+            div []
                 [ text s ]
     in
     case dv of
+        NullValue ->
+            raw "null"
+
         StringValue string ->
             raw string
 
@@ -203,24 +249,44 @@ renderDictValue dv =
         FloatValue float ->
             raw (String.fromFloat float)
 
-        ListValue dvList ->
-            ul [] (List.map (\v -> li [] [ renderDictValue v ]) dvList)
+        ListValue (x :: xs) ->
+            case x of
+                NestedValue dict ->
+                    table [ class "table table-borderless" ]
+                        [ thead [ class "thead-light" ] [ tr [] (List.map (\k -> th [ class "col" ] [ text k ]) (Dict.keys dict)) ]
+                        , tbody []
+                            ((x :: xs)
+                                |> List.map
+                                    (\row ->
+                                        case row of
+                                            NestedValue d ->
+                                                tr [] (Dict.values (Dict.map (\k v -> td [] [ renderDictValue v ]) d))
+
+                                            _ ->
+                                                text ""
+                                    )
+                            )
+                        ]
+
+                _ ->
+                    div [ class "list-group" ]
+                        (List.map (\v -> li [ class "list-group-item" ] [ renderDictValue v ]) (x :: xs))
+
+        ListValue [] ->
+            em [] [ text "no data" ]
 
         NestedValue dict ->
-            table [ class "table" ]
+            div [ class "list-group" ]
                 (Dict.map
                     (\k v ->
-                        tr []
-                            [ th [] [ text k ]
-                            , td [] [ renderDictValue v ]
+                        li [ class "list-group-item" ]
+                            [ div [] [ small [ style "text-transform" "capitalize" ] [ text k ] ]
+                            , div [] [ renderDictValue v ]
                             ]
                     )
                     dict
                     |> Dict.values
                 )
-
-        NullValue ->
-            raw "null"
 
 
 renderRemote : (a -> Html Msg) -> RemoteData.WebData a -> Html Msg
@@ -233,7 +299,7 @@ renderRemote render webData =
             viewAlert (Just { category = "warning", message = "Loading..." })
 
         RemoteData.Failure err ->
-            viewAlert (Just { category = "error", message = Debug.toString err })
+            viewAlert (Just { category = "danger", message = Debug.toString err })
 
         RemoteData.Success data ->
             render data
@@ -363,7 +429,7 @@ update msg model =
         FormSubmitted ->
             case model.selection of
                 Just selection ->
-                    ( { model | selectionResult = RemoteData.Loading }
+                    ( { model | graphqlResponseResult = RemoteData.Loading }
                     , httpRequest model.apiURL selection
                         |> Task.attempt OnFormResponse
                     )
@@ -372,10 +438,10 @@ update msg model =
                     ( model, Cmd.none )
 
         OnFormResponse (Ok data) ->
-            ( { model | selectionResult = RemoteData.fromResult (Ok data) }, Cmd.none )
+            ( { model | graphqlResponseResult = RemoteData.fromResult (Ok data) }, Cmd.none )
 
         OnFormResponse (Err err) ->
-            ( { model | alert = Just { category = "danger", message = Debug.toString err } }, Cmd.none )
+            ( { model | alert = Just { category = "danger", message = Debug.toString err }, graphqlResponseResult = RemoteData.Failure err }, Cmd.none )
 
 
 subscriptions : Model -> Sub Msg
@@ -390,7 +456,7 @@ subscriptions model =
 --
 
 
-httpRequest : String -> Selection -> Task Http.Error DictValue
+httpRequest : String -> Selection -> Task Http.Error GraphQLResponse
 httpRequest apiEndpoint selection =
     case selectionQuery "" selection of
         Nothing ->
@@ -408,7 +474,7 @@ httpRequest apiEndpoint selection =
                 , headers = []
                 , url = apiEndpoint
                 , body = Http.jsonBody httpBody
-                , resolver = Http.stringResolver (API.httpJsonBodyResolver jsonDecodeDictValue)
+                , resolver = Http.stringResolver (API.httpJsonBodyResolver decodeGraphQLResponse)
                 , timeout = Just 10000
                 }
 
