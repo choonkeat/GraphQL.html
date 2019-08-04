@@ -177,45 +177,9 @@ view model =
                         , text " for more APIs"
                         ]
                     ]
-                , div [ class "form-group" ]
-                    [ label [] [ text "HTTP Request Headers" ]
-                    , textarea
-                        [ class "form-control"
-                        , onInput (ModelChanged (\m s -> { m | apiHeaders = s }))
-                        ]
-                        [ text model.apiHeaders ]
-                    , small [ class "text-muted" ]
-                        [ text "e.g. "
-                        , code [] [ text "Authorization: Bearer abc1234" ]
-                        ]
-                    ]
-                , div [ class "form-check" ]
-                    [ input
-                        [ class "form-check-input"
-                        , id "renderDictAsCard"
-                        , type_ "radio"
-                        , name "ChosenDictRenderStyle"
-                        , checked (model.dstyle == DictAsCard)
-                        , onClick (ChosenDictRenderStyle DictAsCard)
-                        ]
-                        []
-                    , label [ class "form-check-label", for "renderDictAsCard" ] [ text "Display data as cards" ]
-                    ]
-                , div [ class "form-check" ]
-                    [ input
-                        [ class "form-check-input"
-                        , id "renderDictAsTable"
-                        , type_ "radio"
-                        , name "ChosenDictRenderStyle"
-                        , checked (model.dstyle == DictAsTable)
-                        , onClick (ChosenDictRenderStyle DictAsTable)
-                        ]
-                        []
-                    , label [ class "form-check-label", for "renderDictAsTable" ] [ text "Display data as table rows" ]
-                    ]
                 ]
             , div [ class "row mt-5" ]
-                [ div [ class "col-3", style "word-break" "break-all" ]
+                [ div [ class "col-md-3", style "word-break" "break-all" ]
                     (List.map
                         (\( heading, maybeHeadingType ) ->
                             maybeHeadingType
@@ -233,12 +197,49 @@ view model =
                         , ( "subscription", Maybe.andThen .subscriptionType model.schema )
                         ]
                     )
-                , div [ class "col-9" ]
+                , div [ class "col-md-9" ]
                     [ case model.selection of
                         Just (SelectionNest record) ->
                             div []
-                                [ form [ onSubmit FormSubmitted ]
+                                [ form [ onSubmit FormSubmitted, class "mb-3" ]
                                     [ renderForm typeLookup [] record.field.name record
+                                    , div [ class "form-group" ]
+                                        [ label [] [ text "HTTP Request Headers" ]
+                                        , textarea
+                                            [ class "form-control"
+                                            , onInput (ModelChanged (\m s -> { m | apiHeaders = s }))
+                                            ]
+                                            [ text model.apiHeaders ]
+                                        , small [ class "text-muted" ]
+                                            [ text "e.g. "
+                                            , code [] [ text "Authorization: Bearer abc1234" ]
+                                            ]
+                                        ]
+                                    , div [ class "form-check" ]
+                                        [ input
+                                            [ class "form-check-input"
+                                            , id "renderDictAsCard"
+                                            , type_ "radio"
+                                            , name "ChosenDictRenderStyle"
+                                            , checked (model.dstyle == DictAsCard)
+                                            , onClick (ChosenDictRenderStyle DictAsCard)
+                                            ]
+                                            []
+                                        , label [ class "form-check-label", for "renderDictAsCard" ] [ text "Display data as cards" ]
+                                        ]
+                                    , div [ class "form-check" ]
+                                        [ input
+                                            [ class "form-check-input"
+                                            , id "renderDictAsTable"
+                                            , type_ "radio"
+                                            , name "ChosenDictRenderStyle"
+                                            , checked (model.dstyle == DictAsTable)
+                                            , onClick (ChosenDictRenderStyle DictAsTable)
+                                            ]
+                                            []
+                                        , label [ class "form-check-label", for "renderDictAsTable" ] [ text "Display data as table rows" ]
+                                        ]
+                                    , div [ class "mb-3" ] [ text "" ]
                                     , case model.graphqlResponseResult of
                                         RemoteData.Loading ->
                                             button [ type_ "submit", disabled True, class "btn btn-primary progress-bar-striped progress-bar-animated" ] [ text "Submit" ]
@@ -254,6 +255,7 @@ view model =
                         _ ->
                             text ""
                     , renderRemote (renderGraphqlResponse model.dstyle) model.graphqlResponseResult
+                    , hr [] []
                     ]
                 ]
             ]
@@ -701,6 +703,12 @@ inputValueQueryValue inputValue =
                 Just "Boolean" ->
                     record.value
 
+                Just "Int" ->
+                    record.value
+
+                Just "Float" ->
+                    record.value
+
                 _ ->
                     Maybe.map Debug.toString record.value
 
@@ -949,6 +957,32 @@ renderInputValue keys key inputValue =
                             ]
                             []
                         , label [ for fieldName, style "text-transform" "capitalize", title (Debug.toString record) ] [ text (humanize key) ]
+                        , div [] [ htmlDescription record.description ]
+                        ]
+
+                Just "Int" ->
+                    div [ class "form-group" ]
+                        [ label [ style "text-transform" "capitalize", title (Debug.toString record) ] [ text (humanize key) ]
+                        , input
+                            [ type_ "number"
+                            , class "form-control"
+                            , value (Maybe.withDefault "" record.value)
+                            , onInput (ModelChanged (setModelFormValue (List.append keys [ key ])))
+                            ]
+                            []
+                        , div [] [ htmlDescription record.description ]
+                        ]
+
+                Just "Float" ->
+                    div [ class "form-group" ]
+                        [ label [ style "text-transform" "capitalize", title (Debug.toString record) ] [ text (humanize key) ]
+                        , input
+                            [ type_ "number"
+                            , class "form-control"
+                            , value (Maybe.withDefault "" record.value)
+                            , onInput (ModelChanged (setModelFormValue (List.append keys [ key ])))
+                            ]
+                            []
                         , div [] [ htmlDescription record.description ]
                         ]
 

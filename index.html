@@ -6984,11 +6984,24 @@ var author$project$Main$inputValueQueryValue = function (inputValue) {
 		case 'InputLeaf':
 			var record = inputValue.a;
 			var _n1 = author$project$GraphQL$typeName(record.type_);
-			if ((_n1.$ === 'Just') && (_n1.a === 'Boolean')) {
-				return record.value;
-			} else {
-				return A2(elm$core$Maybe$map, elm$core$Debug$toString, record.value);
+			_n1$3:
+			while (true) {
+				if (_n1.$ === 'Just') {
+					switch (_n1.a) {
+						case 'Boolean':
+							return record.value;
+						case 'Int':
+							return record.value;
+						case 'Float':
+							return record.value;
+						default:
+							break _n1$3;
+					}
+				} else {
+					break _n1$3;
+				}
 			}
+			return A2(elm$core$Maybe$map, elm$core$Debug$toString, record.value);
 		case 'InputNest':
 			var record = inputValue.a;
 			var inputValueStringDict = inputValue.b;
@@ -7876,112 +7889,217 @@ var author$project$Main$renderInputValue = F3(
 			case 'InputLeaf':
 				var record = inputValue.a;
 				var _n1 = author$project$GraphQL$typeName(record.type_);
-				if ((_n1.$ === 'Just') && (_n1.a === 'Boolean')) {
-					var fieldName = A2(elm$core$String$join, '-', keys) + ('-' + key);
-					return A2(
-						elm$html$Html$div,
-						_List_fromArray(
-							[
-								elm$html$Html$Attributes$class('form-group form-check')
-							]),
-						_List_fromArray(
-							[
-								A2(
-								elm$html$Html$input,
-								_List_fromArray(
-									[
-										elm$html$Html$Attributes$type_('checkbox'),
-										elm$html$Html$Attributes$id(fieldName),
-										elm$html$Html$Attributes$class('form-check-input'),
-										elm$html$Html$Attributes$checked(
-										author$project$Main$maybeBool(record.value)),
-										elm$html$Html$Attributes$value(
-										A3(
-											author$project$Main$boolMap,
-											author$project$Main$maybeBool(record.value),
-											'false',
-											'true')),
-										elm$html$Html$Events$onInput(
-										author$project$Main$ModelChanged(
-											author$project$Main$setModelFormValue(
-												A2(
-													elm$core$List$append,
-													keys,
-													_List_fromArray(
-														[key])))))
-									]),
-								_List_Nil),
-								A2(
-								elm$html$Html$label,
-								_List_fromArray(
-									[
-										elm$html$Html$Attributes$for(fieldName),
-										A2(elm$html$Html$Attributes$style, 'text-transform', 'capitalize'),
-										elm$html$Html$Attributes$title(
-										elm$core$Debug$toString(record))
-									]),
-								_List_fromArray(
-									[
-										elm$html$Html$text(
-										author$project$Main$humanize(key))
-									])),
-								A2(
-								elm$html$Html$div,
-								_List_Nil,
-								_List_fromArray(
-									[
-										author$project$Main$htmlDescription(record.description)
-									]))
-							]));
-				} else {
-					return A2(
-						elm$html$Html$div,
-						_List_fromArray(
-							[
-								elm$html$Html$Attributes$class('form-group')
-							]),
-						_List_fromArray(
-							[
-								A2(
-								elm$html$Html$label,
-								_List_fromArray(
-									[
-										A2(elm$html$Html$Attributes$style, 'text-transform', 'capitalize'),
-										elm$html$Html$Attributes$title(
-										elm$core$Debug$toString(record))
-									]),
-								_List_fromArray(
-									[
-										elm$html$Html$text(
-										author$project$Main$humanize(key))
-									])),
-								A2(
-								elm$html$Html$input,
-								_List_fromArray(
-									[
-										elm$html$Html$Attributes$type_('text'),
-										elm$html$Html$Attributes$class('form-control'),
-										elm$html$Html$Attributes$value(
-										A2(elm$core$Maybe$withDefault, '', record.value)),
-										elm$html$Html$Events$onInput(
-										author$project$Main$ModelChanged(
-											author$project$Main$setModelFormValue(
-												A2(
-													elm$core$List$append,
-													keys,
-													_List_fromArray(
-														[key])))))
-									]),
-								_List_Nil),
-								A2(
-								elm$html$Html$div,
-								_List_Nil,
-								_List_fromArray(
-									[
-										author$project$Main$htmlDescription(record.description)
-									]))
-							]));
+				_n1$3:
+				while (true) {
+					if (_n1.$ === 'Just') {
+						switch (_n1.a) {
+							case 'Boolean':
+								var fieldName = A2(elm$core$String$join, '-', keys) + ('-' + key);
+								return A2(
+									elm$html$Html$div,
+									_List_fromArray(
+										[
+											elm$html$Html$Attributes$class('form-group form-check')
+										]),
+									_List_fromArray(
+										[
+											A2(
+											elm$html$Html$input,
+											_List_fromArray(
+												[
+													elm$html$Html$Attributes$type_('checkbox'),
+													elm$html$Html$Attributes$id(fieldName),
+													elm$html$Html$Attributes$class('form-check-input'),
+													elm$html$Html$Attributes$checked(
+													author$project$Main$maybeBool(record.value)),
+													elm$html$Html$Attributes$value(
+													A3(
+														author$project$Main$boolMap,
+														author$project$Main$maybeBool(record.value),
+														'false',
+														'true')),
+													elm$html$Html$Events$onInput(
+													author$project$Main$ModelChanged(
+														author$project$Main$setModelFormValue(
+															A2(
+																elm$core$List$append,
+																keys,
+																_List_fromArray(
+																	[key])))))
+												]),
+											_List_Nil),
+											A2(
+											elm$html$Html$label,
+											_List_fromArray(
+												[
+													elm$html$Html$Attributes$for(fieldName),
+													A2(elm$html$Html$Attributes$style, 'text-transform', 'capitalize'),
+													elm$html$Html$Attributes$title(
+													elm$core$Debug$toString(record))
+												]),
+											_List_fromArray(
+												[
+													elm$html$Html$text(
+													author$project$Main$humanize(key))
+												])),
+											A2(
+											elm$html$Html$div,
+											_List_Nil,
+											_List_fromArray(
+												[
+													author$project$Main$htmlDescription(record.description)
+												]))
+										]));
+							case 'Int':
+								return A2(
+									elm$html$Html$div,
+									_List_fromArray(
+										[
+											elm$html$Html$Attributes$class('form-group')
+										]),
+									_List_fromArray(
+										[
+											A2(
+											elm$html$Html$label,
+											_List_fromArray(
+												[
+													A2(elm$html$Html$Attributes$style, 'text-transform', 'capitalize'),
+													elm$html$Html$Attributes$title(
+													elm$core$Debug$toString(record))
+												]),
+											_List_fromArray(
+												[
+													elm$html$Html$text(
+													author$project$Main$humanize(key))
+												])),
+											A2(
+											elm$html$Html$input,
+											_List_fromArray(
+												[
+													elm$html$Html$Attributes$type_('number'),
+													elm$html$Html$Attributes$class('form-control'),
+													elm$html$Html$Attributes$value(
+													A2(elm$core$Maybe$withDefault, '', record.value)),
+													elm$html$Html$Events$onInput(
+													author$project$Main$ModelChanged(
+														author$project$Main$setModelFormValue(
+															A2(
+																elm$core$List$append,
+																keys,
+																_List_fromArray(
+																	[key])))))
+												]),
+											_List_Nil),
+											A2(
+											elm$html$Html$div,
+											_List_Nil,
+											_List_fromArray(
+												[
+													author$project$Main$htmlDescription(record.description)
+												]))
+										]));
+							case 'Float':
+								return A2(
+									elm$html$Html$div,
+									_List_fromArray(
+										[
+											elm$html$Html$Attributes$class('form-group')
+										]),
+									_List_fromArray(
+										[
+											A2(
+											elm$html$Html$label,
+											_List_fromArray(
+												[
+													A2(elm$html$Html$Attributes$style, 'text-transform', 'capitalize'),
+													elm$html$Html$Attributes$title(
+													elm$core$Debug$toString(record))
+												]),
+											_List_fromArray(
+												[
+													elm$html$Html$text(
+													author$project$Main$humanize(key))
+												])),
+											A2(
+											elm$html$Html$input,
+											_List_fromArray(
+												[
+													elm$html$Html$Attributes$type_('number'),
+													elm$html$Html$Attributes$class('form-control'),
+													elm$html$Html$Attributes$value(
+													A2(elm$core$Maybe$withDefault, '', record.value)),
+													elm$html$Html$Events$onInput(
+													author$project$Main$ModelChanged(
+														author$project$Main$setModelFormValue(
+															A2(
+																elm$core$List$append,
+																keys,
+																_List_fromArray(
+																	[key])))))
+												]),
+											_List_Nil),
+											A2(
+											elm$html$Html$div,
+											_List_Nil,
+											_List_fromArray(
+												[
+													author$project$Main$htmlDescription(record.description)
+												]))
+										]));
+							default:
+								break _n1$3;
+						}
+					} else {
+						break _n1$3;
+					}
 				}
+				return A2(
+					elm$html$Html$div,
+					_List_fromArray(
+						[
+							elm$html$Html$Attributes$class('form-group')
+						]),
+					_List_fromArray(
+						[
+							A2(
+							elm$html$Html$label,
+							_List_fromArray(
+								[
+									A2(elm$html$Html$Attributes$style, 'text-transform', 'capitalize'),
+									elm$html$Html$Attributes$title(
+									elm$core$Debug$toString(record))
+								]),
+							_List_fromArray(
+								[
+									elm$html$Html$text(
+									author$project$Main$humanize(key))
+								])),
+							A2(
+							elm$html$Html$input,
+							_List_fromArray(
+								[
+									elm$html$Html$Attributes$type_('text'),
+									elm$html$Html$Attributes$class('form-control'),
+									elm$html$Html$Attributes$value(
+									A2(elm$core$Maybe$withDefault, '', record.value)),
+									elm$html$Html$Events$onInput(
+									author$project$Main$ModelChanged(
+										author$project$Main$setModelFormValue(
+											A2(
+												elm$core$List$append,
+												keys,
+												_List_fromArray(
+													[key])))))
+								]),
+							_List_Nil),
+							A2(
+							elm$html$Html$div,
+							_List_Nil,
+							_List_fromArray(
+								[
+									author$project$Main$htmlDescription(record.description)
+								]))
+						]));
 			case 'InputNest':
 				var record = inputValue.a;
 				var inputValueStringDict = inputValue.b;
@@ -9017,125 +9135,6 @@ var author$project$Main$view = function (model) {
 													])),
 												elm$html$Html$text(' for more APIs')
 											]))
-									])),
-								A2(
-								elm$html$Html$div,
-								_List_fromArray(
-									[
-										elm$html$Html$Attributes$class('form-group')
-									]),
-								_List_fromArray(
-									[
-										A2(
-										elm$html$Html$label,
-										_List_Nil,
-										_List_fromArray(
-											[
-												elm$html$Html$text('HTTP Request Headers')
-											])),
-										A2(
-										elm$html$Html$textarea,
-										_List_fromArray(
-											[
-												elm$html$Html$Attributes$class('form-control'),
-												elm$html$Html$Events$onInput(
-												author$project$Main$ModelChanged(
-													F2(
-														function (m, s) {
-															return _Utils_update(
-																m,
-																{apiHeaders: s});
-														})))
-											]),
-										_List_fromArray(
-											[
-												elm$html$Html$text(model.apiHeaders)
-											])),
-										A2(
-										elm$html$Html$small,
-										_List_fromArray(
-											[
-												elm$html$Html$Attributes$class('text-muted')
-											]),
-										_List_fromArray(
-											[
-												elm$html$Html$text('e.g. '),
-												A2(
-												elm$html$Html$code,
-												_List_Nil,
-												_List_fromArray(
-													[
-														elm$html$Html$text('Authorization: Bearer abc1234')
-													]))
-											]))
-									])),
-								A2(
-								elm$html$Html$div,
-								_List_fromArray(
-									[
-										elm$html$Html$Attributes$class('form-check')
-									]),
-								_List_fromArray(
-									[
-										A2(
-										elm$html$Html$input,
-										_List_fromArray(
-											[
-												elm$html$Html$Attributes$class('form-check-input'),
-												elm$html$Html$Attributes$id('renderDictAsCard'),
-												elm$html$Html$Attributes$type_('radio'),
-												elm$html$Html$Attributes$name('ChosenDictRenderStyle'),
-												elm$html$Html$Attributes$checked(
-												_Utils_eq(model.dstyle, author$project$Main$DictAsCard)),
-												elm$html$Html$Events$onClick(
-												author$project$Main$ChosenDictRenderStyle(author$project$Main$DictAsCard))
-											]),
-										_List_Nil),
-										A2(
-										elm$html$Html$label,
-										_List_fromArray(
-											[
-												elm$html$Html$Attributes$class('form-check-label'),
-												elm$html$Html$Attributes$for('renderDictAsCard')
-											]),
-										_List_fromArray(
-											[
-												elm$html$Html$text('Display data as cards')
-											]))
-									])),
-								A2(
-								elm$html$Html$div,
-								_List_fromArray(
-									[
-										elm$html$Html$Attributes$class('form-check')
-									]),
-								_List_fromArray(
-									[
-										A2(
-										elm$html$Html$input,
-										_List_fromArray(
-											[
-												elm$html$Html$Attributes$class('form-check-input'),
-												elm$html$Html$Attributes$id('renderDictAsTable'),
-												elm$html$Html$Attributes$type_('radio'),
-												elm$html$Html$Attributes$name('ChosenDictRenderStyle'),
-												elm$html$Html$Attributes$checked(
-												_Utils_eq(model.dstyle, author$project$Main$DictAsTable)),
-												elm$html$Html$Events$onClick(
-												author$project$Main$ChosenDictRenderStyle(author$project$Main$DictAsTable))
-											]),
-										_List_Nil),
-										A2(
-										elm$html$Html$label,
-										_List_fromArray(
-											[
-												elm$html$Html$Attributes$class('form-check-label'),
-												elm$html$Html$Attributes$for('renderDictAsTable')
-											]),
-										_List_fromArray(
-											[
-												elm$html$Html$text('Display data as table rows')
-											]))
 									]))
 							])),
 						A2(
@@ -9150,7 +9149,7 @@ var author$project$Main$view = function (model) {
 								elm$html$Html$div,
 								_List_fromArray(
 									[
-										elm$html$Html$Attributes$class('col-3'),
+										elm$html$Html$Attributes$class('col-md-3'),
 										A2(elm$html$Html$Attributes$style, 'word-break', 'break-all')
 									]),
 								A2(
@@ -9222,7 +9221,7 @@ var author$project$Main$view = function (model) {
 								elm$html$Html$div,
 								_List_fromArray(
 									[
-										elm$html$Html$Attributes$class('col-9')
+										elm$html$Html$Attributes$class('col-md-9')
 									]),
 								_List_fromArray(
 									[
@@ -9239,11 +9238,141 @@ var author$project$Main$view = function (model) {
 														elm$html$Html$form,
 														_List_fromArray(
 															[
-																elm$html$Html$Events$onSubmit(author$project$Main$FormSubmitted)
+																elm$html$Html$Events$onSubmit(author$project$Main$FormSubmitted),
+																elm$html$Html$Attributes$class('mb-3')
 															]),
 														_List_fromArray(
 															[
 																A4(author$project$Main$renderForm, typeLookup, _List_Nil, record.field.name, record),
+																A2(
+																elm$html$Html$div,
+																_List_fromArray(
+																	[
+																		elm$html$Html$Attributes$class('form-group')
+																	]),
+																_List_fromArray(
+																	[
+																		A2(
+																		elm$html$Html$label,
+																		_List_Nil,
+																		_List_fromArray(
+																			[
+																				elm$html$Html$text('HTTP Request Headers')
+																			])),
+																		A2(
+																		elm$html$Html$textarea,
+																		_List_fromArray(
+																			[
+																				elm$html$Html$Attributes$class('form-control'),
+																				elm$html$Html$Events$onInput(
+																				author$project$Main$ModelChanged(
+																					F2(
+																						function (m, s) {
+																							return _Utils_update(
+																								m,
+																								{apiHeaders: s});
+																						})))
+																			]),
+																		_List_fromArray(
+																			[
+																				elm$html$Html$text(model.apiHeaders)
+																			])),
+																		A2(
+																		elm$html$Html$small,
+																		_List_fromArray(
+																			[
+																				elm$html$Html$Attributes$class('text-muted')
+																			]),
+																		_List_fromArray(
+																			[
+																				elm$html$Html$text('e.g. '),
+																				A2(
+																				elm$html$Html$code,
+																				_List_Nil,
+																				_List_fromArray(
+																					[
+																						elm$html$Html$text('Authorization: Bearer abc1234')
+																					]))
+																			]))
+																	])),
+																A2(
+																elm$html$Html$div,
+																_List_fromArray(
+																	[
+																		elm$html$Html$Attributes$class('form-check')
+																	]),
+																_List_fromArray(
+																	[
+																		A2(
+																		elm$html$Html$input,
+																		_List_fromArray(
+																			[
+																				elm$html$Html$Attributes$class('form-check-input'),
+																				elm$html$Html$Attributes$id('renderDictAsCard'),
+																				elm$html$Html$Attributes$type_('radio'),
+																				elm$html$Html$Attributes$name('ChosenDictRenderStyle'),
+																				elm$html$Html$Attributes$checked(
+																				_Utils_eq(model.dstyle, author$project$Main$DictAsCard)),
+																				elm$html$Html$Events$onClick(
+																				author$project$Main$ChosenDictRenderStyle(author$project$Main$DictAsCard))
+																			]),
+																		_List_Nil),
+																		A2(
+																		elm$html$Html$label,
+																		_List_fromArray(
+																			[
+																				elm$html$Html$Attributes$class('form-check-label'),
+																				elm$html$Html$Attributes$for('renderDictAsCard')
+																			]),
+																		_List_fromArray(
+																			[
+																				elm$html$Html$text('Display data as cards')
+																			]))
+																	])),
+																A2(
+																elm$html$Html$div,
+																_List_fromArray(
+																	[
+																		elm$html$Html$Attributes$class('form-check')
+																	]),
+																_List_fromArray(
+																	[
+																		A2(
+																		elm$html$Html$input,
+																		_List_fromArray(
+																			[
+																				elm$html$Html$Attributes$class('form-check-input'),
+																				elm$html$Html$Attributes$id('renderDictAsTable'),
+																				elm$html$Html$Attributes$type_('radio'),
+																				elm$html$Html$Attributes$name('ChosenDictRenderStyle'),
+																				elm$html$Html$Attributes$checked(
+																				_Utils_eq(model.dstyle, author$project$Main$DictAsTable)),
+																				elm$html$Html$Events$onClick(
+																				author$project$Main$ChosenDictRenderStyle(author$project$Main$DictAsTable))
+																			]),
+																		_List_Nil),
+																		A2(
+																		elm$html$Html$label,
+																		_List_fromArray(
+																			[
+																				elm$html$Html$Attributes$class('form-check-label'),
+																				elm$html$Html$Attributes$for('renderDictAsTable')
+																			]),
+																		_List_fromArray(
+																			[
+																				elm$html$Html$text('Display data as table rows')
+																			]))
+																	])),
+																A2(
+																elm$html$Html$div,
+																_List_fromArray(
+																	[
+																		elm$html$Html$Attributes$class('mb-3')
+																	]),
+																_List_fromArray(
+																	[
+																		elm$html$Html$text('')
+																	])),
 																function () {
 																var _n2 = model.graphqlResponseResult;
 																if (_n2.$ === 'Loading') {
@@ -9282,7 +9411,8 @@ var author$project$Main$view = function (model) {
 										A2(
 										author$project$Main$renderRemote,
 										author$project$Main$renderGraphqlResponse(model.dstyle),
-										model.graphqlResponseResult)
+										model.graphqlResponseResult),
+										A2(elm$html$Html$hr, _List_Nil, _List_Nil)
 									]))
 							]))
 					]))
