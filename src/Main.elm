@@ -76,9 +76,7 @@ decodeGraphQLResponse =
 
 
 type alias Flags =
-    { offsetInMinutes : Int
-    , nowMilliseconds : Int
-    }
+    {}
 
 
 type Msg
@@ -153,7 +151,12 @@ view model =
             Dict.get s model.types
     in
     Browser.Document "App"
-        [ main_ [ class "container" ]
+        [ node "link"
+            [ rel "stylesheet"
+            , href "https://stackpath.bootstrapcdn.com/bootstrap/4.3.1/css/bootstrap.min.css"
+            ]
+            []
+        , main_ [ class "container" ]
             [ div [ class "mt-3" ]
                 []
             , viewAlert model.alert
