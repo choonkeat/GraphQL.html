@@ -3,11 +3,12 @@ module Main exposing (Flags, Model, Msg(..), init, main, subscriptions, update, 
 import API
 import Array exposing (Array)
 import Browser
+import Browser.Events exposing (onClick)
 import Browser.Navigation
 import Dict exposing (Dict)
 import GraphQL exposing (typeName)
-import Html exposing (Html, a, button, div, em, form, h1, h3, h5, hr, input, label, li, main_, nav, node, option, p, pre, select, small, span, strong, table, tbody, td, text, th, thead, tr, ul)
-import Html.Attributes exposing (attribute, checked, class, disabled, for, href, id, name, placeholder, rel, required, style, title, type_, value)
+import Html exposing (Html, a, button, div, em, form, h1, h3, h5, hr, img, input, label, li, main_, nav, node, option, p, pre, select, small, span, strong, table, tbody, td, text, th, thead, tr, ul)
+import Html.Attributes exposing (attribute, checked, class, disabled, for, href, id, name, placeholder, rel, required, src, style, title, type_, value)
 import Html.Events exposing (on, onBlur, onClick, onInput, onSubmit)
 import Http
 import Json.Decode
@@ -46,6 +47,7 @@ type alias Model =
     , field : Maybe GraphQL.Field
     , selectionKey : String
     , selection : Maybe Selection
+    , dstyle : DictRenderStyle
     , graphqlResponseResult : RemoteData.WebData GraphQLResponse
     , apiURL : String
     }
@@ -87,6 +89,7 @@ type Msg
     | ApiUrlUpdated
     | FormSubmitted
     | OnFormResponse (Result Http.Error GraphQLResponse)
+    | ChosenDictRenderStyle DictRenderStyle
 
 
 type DictValue
@@ -125,10 +128,13 @@ init flags url navKey =
             , apiURL = "https://metaphysics-production.artsy.net/"
             , selectionKey = ""
             , selection = Nothing
+            , dstyle = DictAsCard
             , graphqlResponseResult =
-                Json.Decode.decodeString decodeGraphQLResponse Templates.artsydataJson
-                    |> Result.mapError (Json.Decode.errorToString >> Http.BadBody)
-                    |> RemoteData.fromResult
+                RemoteData.NotAsked
+
+            -- Json.Decode.decodeString decodeGraphQLResponse Templates.artsydataJson
+            --     |> Result.mapError (Json.Decode.errorToString >> Http.BadBody)
+            --     |> RemoteData.fromResult
             }
     in
     ( model
@@ -160,6 +166,30 @@ view model =
                         ]
                         []
                     ]
+                , div [ class "form-check" ]
+                    [ input
+                        [ class "form-check-input"
+                        , id "renderDictAsCard"
+                        , type_ "radio"
+                        , name "ChosenDictRenderStyle"
+                        , checked (model.dstyle == DictAsCard)
+                        , onClick (ChosenDictRenderStyle DictAsCard)
+                        ]
+                        []
+                    , label [ class "form-check-label", for "renderDictAsCard" ] [ text "Cards" ]
+                    ]
+                , div [ class "form-check" ]
+                    [ input
+                        [ class "form-check-input"
+                        , id "renderDictAsTable"
+                        , type_ "radio"
+                        , name "ChosenDictRenderStyle"
+                        , checked (model.dstyle == DictAsTable)
+                        , onClick (ChosenDictRenderStyle DictAsTable)
+                        ]
+                        []
+                    , label [ class "form-check-label", for "renderDictAsTable" ] [ text "Tables" ]
+                    ]
                 ]
             , div [ class "row mt-5" ]
                 [ div [ class "col-3", style "word-break" "break-all" ]
@@ -186,7 +216,12 @@ view model =
                             div [ class "row" ]
                                 [ form [ class "col-6", onSubmit FormSubmitted ]
                                     [ renderForm typeLookup [] record.field.name record
-                                    , button [ type_ "submit", class "btn btn-primary" ] [ text "Submit" ]
+                                    , case model.graphqlResponseResult of
+                                        RemoteData.Loading ->
+                                            button [ type_ "submit", disabled True, class "btn btn-primary progress-bar-striped progress-bar-animated" ] [ text "Submit" ]
+
+                                        _ ->
+                                            button [ type_ "submit", class "btn btn-primary" ] [ text "Submit" ]
                                     ]
                                 , pre [ class "col-6 pt-3 pb-3", style "white-space" "pre-wrap", style "background-color" "lightgray" ]
                                     [ text (formQuery record.field.name record) ]
@@ -194,15 +229,15 @@ view model =
 
                         _ ->
                             text ""
-                    , renderRemote renderGraphqlResponse model.graphqlResponseResult
+                    , renderRemote (renderGraphqlResponse model.dstyle) model.graphqlResponseResult
                     ]
                 ]
             ]
         ]
 
 
-renderGraphqlResponse : GraphQLResponse -> Html Msg
-renderGraphqlResponse graphQLResponse =
+renderGraphqlResponse : DictRenderStyle -> GraphQLResponse -> Html Msg
+renderGraphqlResponse dstyle graphQLResponse =
     div []
         [ case graphQLResponse.errors of
             Just (x :: xs) ->
@@ -216,15 +251,62 @@ renderGraphqlResponse graphQLResponse =
                 text ""
         , case graphQLResponse.data of
             Just dictValue ->
-                renderDictValue dictValue
+                renderDictValue dstyle dictValue
 
             Nothing ->
                 text ""
         ]
 
 
-renderDictValue : DictValue -> Html Msg
-renderDictValue dv =
+type DictRenderStyle
+    = DictAsTable
+    | DictAsCard
+
+
+renderDictAsTable : List String -> List DictValue -> Html Msg
+renderDictAsTable keys rows =
+    table [ class "table table-borderless" ]
+        [ thead [ class "" ] [ tr [] (List.map (\k -> th [ class "col", style "text-transform" "capitalize" ] [ text k ]) keys) ]
+        , tbody []
+            (List.map
+                (\row ->
+                    case row of
+                        NestedValue d ->
+                            tr [] (Dict.values (Dict.map (\k v -> td [] [ renderDictValue DictAsTable v ]) d))
+
+                        _ ->
+                            text ""
+                )
+                rows
+            )
+        ]
+
+
+renderDictAsCard : List DictValue -> Html Msg
+renderDictAsCard rows =
+    let
+        listGroup k v =
+            li [ class "list-group-item" ]
+                [ div [] [ small [ class "text-muted", style "text-transform" "capitalize" ] [ text k ] ]
+                , div [ class "row-fluid" ] [ renderDictValue DictAsCard v ]
+                ]
+    in
+    div []
+        (List.map
+            (\row ->
+                case row of
+                    NestedValue dict ->
+                        div [ class "list-group mb-3" ] (Dict.values (Dict.map listGroup dict))
+
+                    _ ->
+                        text ""
+            )
+            rows
+        )
+
+
+renderDictValue : DictRenderStyle -> DictValue -> Html Msg
+renderDictValue dstyle dv =
     let
         raw s =
             div []
@@ -235,7 +317,17 @@ renderDictValue dv =
             raw "null"
 
         StringValue string ->
-            raw string
+            if List.foldl (\ext sum -> sum || String.endsWith ext string) False [ ".jpg", ".png", ".gif", ".webp" ] then
+                case Url.fromString string of
+                    Just _ ->
+                        -- sample of rich data presentation
+                        img [ src string, class "img-fluid img-thumbnail" ] []
+
+                    Nothing ->
+                        raw string
+
+            else
+                raw string
 
         BoolValue True ->
             raw "true"
@@ -252,25 +344,16 @@ renderDictValue dv =
         ListValue (x :: xs) ->
             case x of
                 NestedValue dict ->
-                    table [ class "table table-borderless" ]
-                        [ thead [ class "thead-light" ] [ tr [] (List.map (\k -> th [ class "col" ] [ text k ]) (Dict.keys dict)) ]
-                        , tbody []
-                            ((x :: xs)
-                                |> List.map
-                                    (\row ->
-                                        case row of
-                                            NestedValue d ->
-                                                tr [] (Dict.values (Dict.map (\k v -> td [] [ renderDictValue v ]) d))
+                    case dstyle of
+                        DictAsTable ->
+                            renderDictAsTable (Dict.keys dict) (x :: xs)
 
-                                            _ ->
-                                                text ""
-                                    )
-                            )
-                        ]
+                        DictAsCard ->
+                            renderDictAsCard (x :: xs)
 
                 _ ->
                     div [ class "list-group" ]
-                        (List.map (\v -> li [ class "list-group-item" ] [ renderDictValue v ]) (x :: xs))
+                        (List.map (\v -> li [ class "list-group-item" ] [ renderDictValue dstyle v ]) (x :: xs))
 
         ListValue [] ->
             em [] [ text "no data" ]
@@ -280,8 +363,8 @@ renderDictValue dv =
                 (Dict.map
                     (\k v ->
                         li [ class "list-group-item" ]
-                            [ div [] [ small [ style "text-transform" "capitalize" ] [ text k ] ]
-                            , div [] [ renderDictValue v ]
+                            [ div [] [ small [ class "text-muted", style "text-transform" "capitalize" ] [ text k ] ]
+                            , div [ class "row-fluid" ] [ renderDictValue dstyle v ]
                             ]
                     )
                     dict
@@ -293,7 +376,7 @@ renderRemote : (a -> Html Msg) -> RemoteData.WebData a -> Html Msg
 renderRemote render webData =
     case webData of
         RemoteData.NotAsked ->
-            text "not asked"
+            text ""
 
         RemoteData.Loading ->
             viewAlert (Just { category = "warning", message = "Loading..." })
@@ -416,6 +499,7 @@ update msg model =
                 , field = newField
                 , selectionKey = heading
                 , selection = newSelection
+                , graphqlResponseResult = RemoteData.NotAsked
               }
             , Cmd.none
             )
@@ -442,6 +526,9 @@ update msg model =
 
         OnFormResponse (Err err) ->
             ( { model | alert = Just { category = "danger", message = Debug.toString err }, graphqlResponseResult = RemoteData.Failure err }, Cmd.none )
+
+        ChosenDictRenderStyle dstyle ->
+            ( { model | dstyle = dstyle }, Cmd.none )
 
 
 subscriptions : Model -> Sub Msg
