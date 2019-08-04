@@ -428,9 +428,6 @@ chooseSelectionSet typeLookup keys key selectionSet =
     let
         fieldName =
             String.join "-" keys ++ "-" ++ key
-
-        htmlLabel =
-            label [ for fieldName ] [ text key ]
     in
     case selectionSet of
         SelectionLeaf record ->
@@ -444,8 +441,10 @@ chooseSelectionSet typeLookup keys key selectionSet =
                     , onInput (ModelChanged (toggleModelSelectionSet typeLookup (List.append keys [ key ])))
                     ]
                     []
-                , htmlLabel
-                , div [] [ htmlDescription record.description ]
+                , label [ for fieldName ]
+                    [ text key
+                    , div [] [ htmlDescription record.description ]
+                    ]
                 ]
 
         SelectionNest record form ->
@@ -459,7 +458,7 @@ chooseSelectionSet typeLookup keys key selectionSet =
                     , onInput (ModelChanged (toggleModelSelectionSet typeLookup (List.append keys [ key ])))
                     ]
                     []
-                , htmlLabel
+                , label [ for fieldName ] [ text key ]
                 , renderForm typeLookup keys key form
                 ]
 
@@ -474,8 +473,10 @@ chooseSelectionSet typeLookup keys key selectionSet =
                     , onInput (ModelChanged (toggleModelSelectionSet typeLookup (List.append keys [ key ])))
                     ]
                     []
-                , htmlLabel
-                , div [] [ htmlDescription record.field.description ]
+                , label [ for fieldName ]
+                    [ text key
+                    , div [] [ htmlDescription record.field.description ]
+                    ]
                 ]
 
 
