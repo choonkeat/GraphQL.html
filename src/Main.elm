@@ -498,7 +498,11 @@ toggleSelectionSet typeLookup keys selectionSet =
         SelectionNest record form ->
             case keys of
                 [] ->
-                    SelectionNest { record | selected = not record.selected } form
+                    if record.selected then
+                        SelectionPending { type_ = record.type_, field = record.field, selected = False }
+
+                    else
+                        SelectionNest { record | selected = not record.selected } form
 
                 x :: xs ->
                     let
