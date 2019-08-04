@@ -44,7 +44,7 @@ type alias Model =
     , type_ : Maybe GraphQL.Type
     , field : Maybe GraphQL.Field
     , selectionKey : String
-    , selectionSet : Maybe SelectionSet
+    , selection : Maybe Selection
     , selectionResult : Maybe String
     , apiURL : String
     }
@@ -79,7 +79,7 @@ init flags url navKey =
             , field = Nothing
             , apiURL = "https://metaphysics-production.artsy.net/"
             , selectionKey = ""
-            , selectionSet = Nothing
+            , selection = Nothing
             , selectionResult = Nothing
             }
     in
@@ -133,15 +133,15 @@ view model =
                         ]
                     )
                 , div [ class "col-9" ]
-                    [ case model.selectionSet of
-                        Just (SelectionNest record richSelection) ->
+                    [ case model.selection of
+                        Just (SelectionNest record) ->
                             div [ class "row" ]
                                 [ form [ class "col-6", onSubmit FormSubmitted ]
-                                    [ renderForm typeLookup [] record.field.name richSelection
+                                    [ renderForm typeLookup [] record.field.name record
                                     , button [ type_ "submit", class "btn btn-primary" ] [ text "Submit" ]
                                     ]
                                 , pre [ class "col-6 pt-3 pb-3", style "white-space" "pre-wrap", style "background-color" "lightgray" ]
-                                    [ text (formQuery record.field.name richSelection)
+                                    [ text (formQuery record.field.name record)
                                     , text "\n\n"
                                     , text (Maybe.withDefault "" model.selectionResult)
                                     ]
@@ -155,27 +155,27 @@ view model =
         ]
 
 
-selectionSetName : SelectionSet -> Maybe String
-selectionSetName selectionSet =
-    case selectionSet of
+selectionName : Selection -> Maybe String
+selectionName selection =
+    case selection of
         SelectionLeaf record ->
             Nothing
 
-        SelectionNest record form ->
+        SelectionNest record ->
             Just record.field.name
 
         SelectionPending record ->
             Just record.field.name
 
 
-selectionSetForm : SelectionSet -> Maybe Form
-selectionSetForm selectionSet =
-    case selectionSet of
+selectionForm : Selection -> Maybe SelectionNestAttrs
+selectionForm selection =
+    case selection of
         SelectionLeaf record ->
             Nothing
 
-        SelectionNest record form ->
-            Just form
+        SelectionNest record ->
+            Just record
 
         SelectionPending record ->
             Nothing
@@ -253,19 +253,19 @@ update msg model =
                 newField =
                     Just field
 
-                newSelectionSet =
+                newSelection =
                     case newType of
                         Nothing ->
-                            model.selectionSet
+                            model.selection
 
                         Just t ->
-                            Just (SelectionNest { type_ = t, field = field, selected = True } (graphqlFieldToForm typeLookup field field.description))
+                            Just (SelectionNest (graphqlFieldToForm typeLookup t field True))
             in
             ( { model
                 | type_ = newType
                 , field = newField
                 , selectionKey = heading
-                , selectionSet = newSelectionSet
+                , selection = newSelection
               }
             , Cmd.none
             )
@@ -277,10 +277,10 @@ update msg model =
             )
 
         FormSubmitted ->
-            case model.selectionSet of
-                Just selectionSet ->
+            case model.selection of
+                Just selection ->
                     ( model
-                    , httpRequest model.apiURL selectionSet
+                    , httpRequest model.apiURL selection
                         |> Task.attempt OnFormResponse
                     )
 
@@ -306,9 +306,9 @@ subscriptions model =
 --
 
 
-httpRequest : String -> SelectionSet -> Task Http.Error String
-httpRequest apiEndpoint selectionSet =
-    case selectionSetQuery "" selectionSet of
+httpRequest : String -> Selection -> Task Http.Error String
+httpRequest apiEndpoint selection =
+    case selectionQuery "" selection of
         Nothing ->
             Task.fail (Http.BadBody "Incomplete request form")
 
@@ -329,32 +329,37 @@ httpRequest apiEndpoint selectionSet =
                 }
 
 
-type SelectionSet
+type Selection
     = SelectionLeaf { type_ : GraphQL.Type, description : Maybe String, selected : Bool }
-    | SelectionNest { type_ : GraphQL.Type, field : GraphQL.Field, selected : Bool } Form
+    | SelectionNest SelectionNestAttrs
     | SelectionPending { type_ : GraphQL.Type, field : GraphQL.Field, selected : Bool }
+
+
+type alias SelectionNestAttrs =
+    { type_ : GraphQL.Type, field : GraphQL.Field, selected : Bool, inputValueDict : InputValueDict, selectionDict : SelectionDict }
+
+
+type alias SelectionDict =
+    Dict String Selection
+
+
+type alias InputValueDict =
+    Dict String InputValue
 
 
 type InputValue
     = InputLeaf { type_ : GraphQL.Type, description : Maybe String, value : Maybe String }
-    | InputNest { type_ : GraphQL.Type, description : Maybe String, selected : Bool } (Dict String InputValue)
+    | InputNest { type_ : GraphQL.Type, description : Maybe String, selected : Bool } InputValueDict
     | InputUnion (List InputValue)
     | InputEnum { type_ : GraphQL.Type, description : Maybe String, value : Maybe String, options : List String }
     | InputList (List InputValue)
 
 
-type alias Form =
-    { description : Maybe String
-    , inputValues : Dict String InputValue
-    , selectionSet : Dict String SelectionSet
-    }
-
-
-formQuery : String -> Form -> String
+formQuery : String -> SelectionNestAttrs -> String
 formQuery key form =
     let
         queries =
-            Dict.map inputValueQuery form.inputValues
+            Dict.map inputValueQuery form.inputValueDict
                 |> Dict.values
                 |> listWithoutNothing
 
@@ -366,20 +371,20 @@ formQuery key form =
                 _ ->
                     key ++ "(" ++ String.join " " queries ++ ")"
     in
-    selectionInput ++ "{" ++ selectionSetDictQuery form.selectionSet ++ "}"
+    selectionInput ++ "{" ++ selectionDictQuery form.selectionDict ++ "}"
 
 
-selectionSetDictQuery : Dict String SelectionSet -> String
-selectionSetDictQuery dict =
-    Dict.map selectionSetQuery dict
+selectionDictQuery : SelectionDict -> String
+selectionDictQuery dict =
+    Dict.map selectionQuery dict
         |> Dict.values
         |> listWithoutNothing
         |> String.join " "
 
 
-selectionSetQuery : String -> SelectionSet -> Maybe String
-selectionSetQuery key selectionSet =
-    case selectionSet of
+selectionQuery : String -> Selection -> Maybe String
+selectionQuery key selection =
+    case selection of
         SelectionLeaf record ->
             if record.selected then
                 Just key
@@ -387,9 +392,9 @@ selectionSetQuery key selectionSet =
             else
                 Nothing
 
-        SelectionNest record form ->
+        SelectionNest record ->
             if record.selected then
-                Just (formQuery record.field.name form)
+                Just (formQuery record.field.name record)
 
             else
                 Nothing
@@ -446,17 +451,17 @@ maybeJoinWrap connect start end listMaybes =
 -- Just (String.join ", " (List.map (inputValueQuery key) inputValueList))
 
 
-renderForm : (String -> Maybe GraphQL.Type) -> List String -> String -> Form -> Html Msg
+renderForm : (String -> Maybe GraphQL.Type) -> List String -> String -> SelectionNestAttrs -> Html Msg
 renderForm typeLookup keys key form =
     let
         bodyFooter =
-            [ if form.inputValues == Dict.empty then
+            [ if form.inputValueDict == Dict.empty then
                 text ""
 
               else
-                div [ class "card-body" ] (Dict.values (Dict.map (renderInputValue (List.append keys [ key ])) form.inputValues))
+                div [ class "card-body" ] (Dict.values (Dict.map (renderInputValue (List.append keys [ key ])) form.inputValueDict))
             , div [ class "card-footer" ]
-                [ div [ class "form-group form-check" ] (Dict.values (Dict.map (chooseSelectionSet typeLookup (List.append keys [ key ])) form.selectionSet))
+                [ div [ class "form-group form-check" ] (Dict.values (Dict.map (chooseSelection typeLookup (List.append keys [ key ])) form.selectionDict))
                 ]
             ]
     in
@@ -470,13 +475,13 @@ renderForm typeLookup keys key form =
         div [] bodyFooter
 
 
-chooseSelectionSet : (String -> Maybe GraphQL.Type) -> List String -> String -> SelectionSet -> Html Msg
-chooseSelectionSet typeLookup keys key selectionSet =
+chooseSelection : (String -> Maybe GraphQL.Type) -> List String -> String -> Selection -> Html Msg
+chooseSelection typeLookup keys key selection =
     let
         fieldName =
             String.join "-" keys ++ "-" ++ key
     in
-    case selectionSet of
+    case selection of
         SelectionLeaf record ->
             div []
                 [ input
@@ -485,7 +490,7 @@ chooseSelectionSet typeLookup keys key selectionSet =
                     , class "form-check-input"
                     , checked record.selected
                     , value (boolMap record.selected "false" "true") -- opposite
-                    , onInput (ModelChanged (toggleModelSelectionSet typeLookup (List.append keys [ key ])))
+                    , onInput (ModelChanged (toggleModelSelection typeLookup (List.append keys [ key ])))
                     ]
                     []
                 , label [ for fieldName ]
@@ -494,7 +499,7 @@ chooseSelectionSet typeLookup keys key selectionSet =
                     ]
                 ]
 
-        SelectionNest record form ->
+        SelectionNest record ->
             div []
                 [ input
                     [ type_ "checkbox"
@@ -502,11 +507,11 @@ chooseSelectionSet typeLookup keys key selectionSet =
                     , class "form-check-input"
                     , checked record.selected
                     , value (boolMap record.selected "false" "true") -- opposite
-                    , onInput (ModelChanged (toggleModelSelectionSet typeLookup (List.append keys [ key ])))
+                    , onInput (ModelChanged (toggleModelSelection typeLookup (List.append keys [ key ])))
                     ]
                     []
                 , label [ for fieldName ] [ text key ]
-                , renderForm typeLookup keys key form
+                , renderForm typeLookup keys key record
                 ]
 
         SelectionPending record ->
@@ -517,7 +522,7 @@ chooseSelectionSet typeLookup keys key selectionSet =
                     , class "form-check-input"
                     , checked False
                     , value "true" -- opposite
-                    , onInput (ModelChanged (toggleModelSelectionSet typeLookup (List.append keys [ key ])))
+                    , onInput (ModelChanged (toggleModelSelection typeLookup (List.append keys [ key ])))
                     ]
                     []
                 , label [ for fieldName ]
@@ -527,40 +532,36 @@ chooseSelectionSet typeLookup keys key selectionSet =
                 ]
 
 
-toggleModelSelectionSet : (String -> Maybe GraphQL.Type) -> List String -> Model -> String -> Model
-toggleModelSelectionSet typeLookup keys model value =
-    case model.selectionSet of
-        Just (SelectionNest record form) ->
-            { model | selectionSet = Just (toggleSelectionSet typeLookup (List.drop 1 keys) (SelectionNest record form)) }
+toggleModelSelection : (String -> Maybe GraphQL.Type) -> List String -> Model -> String -> Model
+toggleModelSelection typeLookup keys model value =
+    case model.selection of
+        Just (SelectionNest selection) ->
+            { model | selection = Just (toggleSelection typeLookup (List.drop 1 keys) (SelectionNest selection)) }
 
         _ ->
             model
 
 
-toggleSelectionSet : (String -> Maybe GraphQL.Type) -> List String -> SelectionSet -> SelectionSet
-toggleSelectionSet typeLookup keys selectionSet =
-    case selectionSet of
+toggleSelection : (String -> Maybe GraphQL.Type) -> List String -> Selection -> Selection
+toggleSelection typeLookup keys selection =
+    case selection of
         SelectionLeaf record ->
             SelectionLeaf { record | selected = not record.selected }
 
-        SelectionNest record form ->
+        SelectionNest record ->
             case keys of
                 [] ->
                     if record.selected then
                         SelectionPending { type_ = record.type_, field = record.field, selected = False }
 
                     else
-                        SelectionNest { record | selected = not record.selected } form
+                        SelectionNest { record | selected = not record.selected }
 
                 x :: xs ->
-                    let
-                        newForm =
-                            { form | selectionSet = Dict.update x (Maybe.map (toggleSelectionSet typeLookup xs)) form.selectionSet }
-                    in
-                    SelectionNest record newForm
+                    SelectionNest { record | selectionDict = Dict.update x (Maybe.map (toggleSelection typeLookup xs)) record.selectionDict }
 
         SelectionPending record ->
-            graphqlFieldToSelectionSet
+            graphqlFieldToSelection
                 typeLookup
                 record.field.description
                 record.field.name
@@ -571,52 +572,52 @@ toggleSelectionSet typeLookup keys selectionSet =
 
 setModelFormValue : List String -> Model -> String -> Model
 setModelFormValue keys model value =
-    case model.selectionSet of
-        Just (SelectionNest record form) ->
+    case model.selection of
+        Just (SelectionNest record) ->
             let
-                newForm =
-                    setFormValue (List.drop 1 keys) form value
+                newRecord =
+                    setFormValue (List.drop 1 keys) record value
             in
-            { model | selectionSet = Just (SelectionNest record newForm) }
+            { model | selection = Just (SelectionNest newRecord) }
 
         _ ->
             model
 
 
-setFormValue : List String -> Form -> String -> Form
+setFormValue : List String -> SelectionNestAttrs -> String -> SelectionNestAttrs
 setFormValue keys form value =
     case keys of
         x :: xs ->
-            case Dict.get x form.inputValues of
+            case Dict.get x form.inputValueDict of
                 Just _ ->
-                    { form | inputValues = Dict.update x (Maybe.map (setInputValue xs value)) form.inputValues }
+                    { form | inputValueDict = Dict.update x (Maybe.map (setInputValue xs value)) form.inputValueDict }
 
                 Nothing ->
-                    { form | selectionSet = Dict.update x (Maybe.map (setSelectionSetValue xs value)) form.selectionSet }
+                    { form | selectionDict = Dict.update x (Maybe.map (setSelectionValue xs value)) form.selectionDict }
 
         _ ->
             form
 
 
-setSelectionSetValue : List String -> String -> SelectionSet -> SelectionSet
-setSelectionSetValue keys value selectionSet =
+setSelectionValue : List String -> String -> Selection -> Selection
+setSelectionValue keys value selection =
     let
-        unexpectedSelectionSet =
+        unexpectedSelection =
             let
                 _ =
-                    Debug.log "UNEXPECTED setSelectionSetValue" ( keys, value, selectionSet )
+                    Debug.log "UNEXPECTED setSelectionValue" ( keys, value, selection )
             in
-            selectionSet
+            selection
     in
-    case selectionSet of
+    case selection of
         SelectionLeaf record ->
-            unexpectedSelectionSet
+            unexpectedSelection
 
-        SelectionNest record form ->
-            SelectionNest record (setFormValue keys form value)
+        SelectionNest record ->
+            SelectionNest (setFormValue keys record value)
 
         SelectionPending record ->
-            unexpectedSelectionSet
+            unexpectedSelection
 
 
 setInputValue : List String -> String -> InputValue -> InputValue
@@ -721,18 +722,12 @@ decodeSelectChanged keys =
     Json.Decode.map (ModelChanged (setModelFormValue keys)) Html.Events.targetValue
 
 
-graphqlFieldToForm : (String -> Maybe GraphQL.Type) -> GraphQL.Field -> Maybe String -> Form
-graphqlFieldToForm typeLookup graphqlField description =
-    -- type alias Field =
-    --     { name : String
-    --     , description : Maybe String
-    --     , args : List InputValue
-    --     , type_ : Type
-    --     , isDeprecated : Bool
-    --     , deprecationReason : Maybe String
-    --     }
-    { description = description
-    , inputValues =
+graphqlFieldToForm : (String -> Maybe GraphQL.Type) -> GraphQL.Type -> GraphQL.Field -> Bool -> SelectionNestAttrs
+graphqlFieldToForm typeLookup graphqlType graphqlField selected =
+    { type_ = graphqlType
+    , field = graphqlField
+    , selected = selected
+    , inputValueDict =
         List.foldl
             (\arg dict ->
                 Dict.insert arg.name
@@ -741,14 +736,14 @@ graphqlFieldToForm typeLookup graphqlField description =
             )
             Dict.empty
             graphqlField.args
-    , selectionSet =
+    , selectionDict =
         absoluteType typeLookup graphqlField.type_
-            |> graphqlTypeToSelectionSet typeLookup graphqlField.description graphqlField.name
+            |> graphqlTypeToSelection typeLookup graphqlField.description graphqlField.name
     }
 
 
-graphqlFieldToSelectionSet : (String -> Maybe GraphQL.Type) -> Maybe String -> String -> GraphQL.Type -> GraphQL.Field -> Bool -> SelectionSet
-graphqlFieldToSelectionSet typeLookup description name graphqlType graphqlField selected =
+graphqlFieldToSelection : (String -> Maybe GraphQL.Type) -> Maybe String -> String -> GraphQL.Type -> GraphQL.Field -> Bool -> Selection
+graphqlFieldToSelection typeLookup description name graphqlType graphqlField selected =
     if selected then
         -- SelectionNest
         --     { type_ = graphqlType, field = graphqlField, selected = selected }
@@ -758,14 +753,10 @@ graphqlFieldToSelectionSet typeLookup description name graphqlType graphqlField 
                 SelectionLeaf { type_ = graphqlType, selected = selected, description = description }
 
             GraphQL.TypeObject attrs ->
-                SelectionNest
-                    { type_ = graphqlType, field = graphqlField, selected = selected }
-                    (graphqlFieldToForm typeLookup graphqlField graphqlField.description)
+                SelectionNest (graphqlFieldToForm typeLookup graphqlType graphqlField selected)
 
             GraphQL.TypeInterface attrs ->
-                SelectionNest
-                    { type_ = graphqlType, field = graphqlField, selected = selected }
-                    (graphqlFieldToForm typeLookup graphqlField graphqlField.description)
+                SelectionNest (graphqlFieldToForm typeLookup graphqlType graphqlField selected)
 
             GraphQL.TypeUnion attrs ->
                 SelectionLeaf { type_ = graphqlType, selected = selected, description = description }
@@ -777,18 +768,18 @@ graphqlFieldToSelectionSet typeLookup description name graphqlType graphqlField 
                 SelectionLeaf { type_ = graphqlType, selected = selected, description = description }
 
             GraphQL.TypeNotNull attrs ->
-                graphqlFieldToSelectionSet typeLookup description name attrs.ofType graphqlField selected
+                graphqlFieldToSelection typeLookup description name attrs.ofType graphqlField selected
 
             GraphQL.TypeList attrs ->
-                graphqlFieldToSelectionSet typeLookup description name attrs.ofType graphqlField selected
+                graphqlFieldToSelection typeLookup description name attrs.ofType graphqlField selected
 
     else
         SelectionPending
             { type_ = graphqlType, field = graphqlField, selected = selected }
 
 
-graphqlTypeToSelectionSet : (String -> Maybe GraphQL.Type) -> Maybe String -> String -> GraphQL.Type -> Dict String SelectionSet
-graphqlTypeToSelectionSet typeLookup description name graphqlType =
+graphqlTypeToSelection : (String -> Maybe GraphQL.Type) -> Maybe String -> String -> GraphQL.Type -> SelectionDict
+graphqlTypeToSelection typeLookup description name graphqlType =
     let
         -- given `attrs`, return a Dict of single key-value
         singleNameSelection attrs =
@@ -798,10 +789,10 @@ graphqlTypeToSelectionSet typeLookup description name graphqlType =
         insertNameSelection dict field type_ =
             Dict.insert
                 field.name
-                (graphqlFieldToSelectionSet typeLookup description name type_ field False)
+                (graphqlFieldToSelection typeLookup description name type_ field False)
                 dict
 
-        -- fold a `List Field` into `Dict String SelectionSet`
+        -- fold a `List Field` into `SelectionDict`
         foldlNameSelection fields =
             List.foldl
                 (\field dict ->
@@ -836,11 +827,11 @@ graphqlTypeToSelectionSet typeLookup description name graphqlType =
 
         GraphQL.TypeNotNull attrs ->
             absoluteType typeLookup attrs.ofType
-                |> graphqlTypeToSelectionSet typeLookup description name
+                |> graphqlTypeToSelection typeLookup description name
 
         GraphQL.TypeList attrs ->
             absoluteType typeLookup attrs.ofType
-                |> graphqlTypeToSelectionSet typeLookup description name
+                |> graphqlTypeToSelection typeLookup description name
 
 
 graphqlTypeToInputValue : (String -> Maybe GraphQL.Type) -> Maybe String -> Maybe String -> GraphQL.Type -> InputValue
@@ -853,7 +844,6 @@ graphqlTypeToInputValue typeLookup value description graphqlType =
             -- TODO: graphqlType.interfaces : Maybe (List Type)
             InputNest
                 { description = description, type_ = graphqlType, selected = maybeSomething value }
-                -- (Dict String InputValue)
                 (attrs.fields
                     |> Maybe.map
                         (List.foldl
@@ -869,7 +859,6 @@ graphqlTypeToInputValue typeLookup value description graphqlType =
             -- TODO: graphqlType.possibleTypes : Maybe (List Type)
             InputNest
                 { description = description, type_ = graphqlType, selected = maybeSomething value }
-                -- (Dict String InputValue)
                 (attrs.fields
                     |> Maybe.map
                         (List.foldl
@@ -904,7 +893,6 @@ graphqlTypeToInputValue typeLookup value description graphqlType =
                 , type_ = graphqlType
                 , selected = maybeSomething value
                 }
-                -- (Dict String InputValue)
                 (attrs.inputFields
                     |> Maybe.map
                         (List.foldl
