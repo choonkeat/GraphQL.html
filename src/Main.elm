@@ -8,9 +8,10 @@ import Dict exposing (Dict)
 import GraphQL exposing (typeName)
 import Html exposing (Html, a, button, div, form, h1, h3, h5, hr, input, label, main_, nav, node, option, p, pre, select, small, span, strong, text, ul)
 import Html.Attributes exposing (attribute, checked, class, disabled, for, href, id, name, placeholder, rel, required, style, title, type_, value)
-import Html.Events exposing (on, onBlur, onClick, onInput)
+import Html.Events exposing (on, onBlur, onClick, onInput, onSubmit)
 import Http
 import Json.Decode
+import Json.Encode
 import List exposing (sum)
 import Task exposing (Task)
 import Templates
@@ -42,7 +43,9 @@ type alias Model =
     , types : Dict String GraphQL.Type
     , type_ : Maybe GraphQL.Type
     , field : Maybe GraphQL.Field
+    , selectionKey : String
     , selectionSet : Maybe SelectionSet
+    , selectionResult : Maybe String
     , apiURL : String
     }
 
@@ -60,6 +63,8 @@ type Msg
     | OnHttpResponse (Result Http.Error String)
     | ChosenSchema String GraphQL.Field
     | ApiUrlUpdated
+    | FormSubmitted
+    | OnFormResponse (Result Http.Error String)
 
 
 init : Flags -> Url.Url -> Browser.Navigation.Key -> ( Model, Cmd Msg )
@@ -73,7 +78,9 @@ init flags url navKey =
             , type_ = Nothing
             , field = Nothing
             , apiURL = "https://metaphysics-production.artsy.net/"
+            , selectionKey = ""
             , selectionSet = Nothing
+            , selectionResult = Nothing
             }
     in
     ( model
@@ -127,12 +134,17 @@ view model =
                     )
                 , div [ class "col-9" ]
                     [ case model.selectionSet of
-                        Just (SelectionNest record form) ->
-                            div []
-                                [ h3 [ style "text-transform" "capitalize" ] [ text (humanize record.field.name) ]
-                                , renderForm typeLookup [] record.field.name form
-                                , pre [ class "p-4", style "white-space" "pre-wrap", style "background-color" "lightgray" ]
-                                    [ text (formQuery record.field.name form) ]
+                        Just (SelectionNest record richSelection) ->
+                            div [ class "row" ]
+                                [ form [ class "col-6", onSubmit FormSubmitted ]
+                                    [ renderForm typeLookup [] record.field.name richSelection
+                                    , button [ type_ "submit", class "btn btn-primary" ] [ text "Submit" ]
+                                    ]
+                                , pre [ class "col-6 pt-3 pb-3", style "white-space" "pre-wrap", style "background-color" "lightgray" ]
+                                    [ text (formQuery record.field.name richSelection)
+                                    , text "\n\n"
+                                    , text (Maybe.withDefault "" model.selectionResult)
+                                    ]
                                 ]
 
                         _ ->
@@ -216,7 +228,7 @@ update msg model =
             ( function model string, Cmd.none )
 
         OnHttpResponse (Ok string) ->
-            case Json.Decode.decodeString GraphQL.decodeResponse string of
+            case Json.Decode.decodeString GraphQL.decodeIntrospectResponse string of
                 Err oops ->
                     ( { model | alert = Just { category = "danger", message = Json.Decode.errorToString oops } }, Cmd.none )
 
@@ -227,8 +239,8 @@ update msg model =
                     in
                     ( { model | alert = Nothing, schema = Just resp.data.schema, types = newTypes }, Cmd.none )
 
-        OnHttpResponse (Err oops) ->
-            ( { model | alert = Just { category = "danger", message = Debug.toString oops } }, Cmd.none )
+        OnHttpResponse (Err err) ->
+            ( { model | alert = Just { category = "danger", message = Debug.toString err } }, Cmd.none )
 
         ChosenSchema heading field ->
             let
@@ -252,6 +264,7 @@ update msg model =
             ( { model
                 | type_ = newType
                 , field = newField
+                , selectionKey = heading
                 , selectionSet = newSelectionSet
               }
             , Cmd.none
@@ -262,6 +275,23 @@ update msg model =
             , API.introspect model.apiURL
                 |> Task.attempt OnHttpResponse
             )
+
+        FormSubmitted ->
+            case model.selectionSet of
+                Just selectionSet ->
+                    ( model
+                    , httpRequest model.apiURL selectionSet
+                        |> Task.attempt OnFormResponse
+                    )
+
+                Nothing ->
+                    ( model, Cmd.none )
+
+        OnFormResponse (Ok data) ->
+            ( { model | selectionResult = Just data }, Cmd.none )
+
+        OnFormResponse (Err err) ->
+            ( { model | alert = Just { category = "danger", message = Debug.toString err } }, Cmd.none )
 
 
 subscriptions : Model -> Sub Msg
@@ -274,6 +304,29 @@ subscriptions model =
 --
 --
 --
+
+
+httpRequest : String -> SelectionSet -> Task Http.Error String
+httpRequest apiEndpoint selectionSet =
+    case selectionSetQuery "" selectionSet of
+        Nothing ->
+            Task.fail (Http.BadBody "Incomplete request form")
+
+        Just query ->
+            let
+                httpBody =
+                    Json.Encode.object
+                        [ ( "query", Json.Encode.string ("query{" ++ query ++ "}") )
+                        ]
+            in
+            Http.task
+                { method = "POST"
+                , headers = []
+                , url = apiEndpoint
+                , body = Http.jsonBody httpBody
+                , resolver = Http.stringResolver API.httpStringBodyResolver
+                , timeout = Just 10000
+                }
 
 
 type SelectionSet
@@ -297,12 +350,6 @@ type alias Form =
     }
 
 
-formDictQuery : String -> Dict String Form -> String
-formDictQuery key dict =
-    String.join "\n"
-        ((key ++ " {") :: List.append (Dict.values (Dict.map formQuery dict)) [ "}" ])
-
-
 formQuery : String -> Form -> String
 formQuery key form =
     let
@@ -311,15 +358,15 @@ formQuery key form =
                 |> Dict.values
                 |> listWithoutNothing
 
-        selectionSetOutput =
-            "{\n" ++ selectionSetDictQuery form.selectionSet ++ "\n}"
-    in
-    case queries of
-        [] ->
-            key ++ " " ++ selectionSetOutput
+        selectionInput =
+            case queries of
+                [] ->
+                    key
 
-        _ ->
-            String.join "\n" ((key ++ "(") :: List.append queries [ ") " ++ selectionSetOutput ])
+                _ ->
+                    key ++ "(" ++ String.join " " queries ++ ")"
+    in
+    selectionInput ++ "{" ++ selectionSetDictQuery form.selectionSet ++ "}"
 
 
 selectionSetDictQuery : Dict String SelectionSet -> String
@@ -327,7 +374,7 @@ selectionSetDictQuery dict =
     Dict.map selectionSetQuery dict
         |> Dict.values
         |> listWithoutNothing
-        |> String.join "\n"
+        |> String.join " "
 
 
 selectionSetQuery : String -> SelectionSet -> Maybe String
@@ -342,7 +389,7 @@ selectionSetQuery key selectionSet =
 
         SelectionNest record form ->
             if record.selected then
-                Just (formQuery key form)
+                Just (formQuery record.field.name form)
 
             else
                 Nothing

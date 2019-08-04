@@ -4,7 +4,7 @@ module GraphQL exposing
     , Response
     , Schema
     , Type(..)
-    , decodeResponse
+    , decodeIntrospectResponse
     , fieldType
     , fields
     , introspectionQuery
@@ -25,8 +25,8 @@ type alias Data =
     { schema : Schema }
 
 
-decodeResponse : Json.Decode.Decoder Response
-decodeResponse =
+decodeIntrospectResponse : Json.Decode.Decoder Response
+decodeIntrospectResponse =
     Json.Decode.map Response
         (Json.Decode.field "data"
             (Json.Decode.map Data
