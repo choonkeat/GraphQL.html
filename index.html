@@ -5155,7 +5155,7 @@ var elm$core$Task$attempt = F2(
 var krisajenkins$remotedata$RemoteData$NotAsked = {$: 'NotAsked'};
 var author$project$Main$init = F3(
 	function (flags, url, navKey) {
-		var model = {alert: elm$core$Maybe$Nothing, apiHeaders: '', apiURL: 'https://metaphysics-production.artsy.net/', dstyle: author$project$Main$DictAsCard, field: elm$core$Maybe$Nothing, graphqlResponseResult: krisajenkins$remotedata$RemoteData$NotAsked, navKey: navKey, schema: elm$core$Maybe$Nothing, selection: elm$core$Maybe$Nothing, selectionKey: '', type_: elm$core$Maybe$Nothing, types: elm$core$Dict$empty};
+		var model = {alert: elm$core$Maybe$Nothing, apiHeaders: '', apiURL: 'https://metaphysics-production.artsy.net/', dstyle: author$project$Main$DictAsCard, field: elm$core$Maybe$Nothing, graphqlResponseResult: krisajenkins$remotedata$RemoteData$NotAsked, navKey: navKey, schema: elm$core$Maybe$Nothing, selection: krisajenkins$remotedata$RemoteData$NotAsked, selectionKey: '', type_: elm$core$Maybe$Nothing, types: elm$core$Dict$empty};
 		return _Utils_Tuple2(
 			model,
 			A2(
@@ -7411,7 +7411,8 @@ var author$project$Main$update = F2(
 										{
 											category: 'danger',
 											message: elm$json$Json$Decode$errorToString(oops)
-										})
+										}),
+									selection: krisajenkins$remotedata$RemoteData$NotAsked
 								}),
 							elm$core$Platform$Cmd$none);
 					} else {
@@ -7423,6 +7424,7 @@ var author$project$Main$update = F2(
 								{
 									alert: elm$core$Maybe$Nothing,
 									schema: elm$core$Maybe$Just(resp.data.schema),
+									selection: krisajenkins$remotedata$RemoteData$NotAsked,
 									types: newTypes
 								}),
 							elm$core$Platform$Cmd$none);
@@ -7437,7 +7439,8 @@ var author$project$Main$update = F2(
 									{
 										category: 'danger',
 										message: elm$core$Debug$toString(err)
-									})
+									}),
+								selection: krisajenkins$remotedata$RemoteData$NotAsked
 							}),
 						elm$core$Platform$Cmd$none);
 				}
@@ -7453,7 +7456,7 @@ var author$project$Main$update = F2(
 						return model.selection;
 					} else {
 						var t = newType.a;
-						return elm$core$Maybe$Just(
+						return krisajenkins$remotedata$RemoteData$Success(
 							author$project$Main$SelectionNest(
 								A4(author$project$Main$graphqlFieldToForm, typeLookup, t, field, true)));
 					}
@@ -7468,14 +7471,14 @@ var author$project$Main$update = F2(
 				return _Utils_Tuple2(
 					_Utils_update(
 						model,
-						{alert: elm$core$Maybe$Nothing}),
+						{alert: elm$core$Maybe$Nothing, selection: krisajenkins$remotedata$RemoteData$Loading}),
 					A2(
 						elm$core$Task$attempt,
 						author$project$Main$OnHttpResponse,
 						author$project$API$introspect(model.apiURL)));
 			case 'FormSubmitted':
 				var _n3 = model.selection;
-				if (_n3.$ === 'Just') {
+				if (_n3.$ === 'Success') {
 					var selection = _n3.a;
 					return _Utils_Tuple2(
 						_Utils_update(
@@ -7576,22 +7579,26 @@ var author$project$GraphQL$fields = F2(
 					author$project$GraphQL$typeName(type_))));
 	});
 var author$project$Main$ApiUrlUpdated = {$: 'ApiUrlUpdated'};
-var author$project$Main$ChosenDictRenderStyle = function (a) {
-	return {$: 'ChosenDictRenderStyle', a: a};
-};
-var author$project$Main$DictAsTable = {$: 'DictAsTable'};
-var author$project$Main$FormSubmitted = {$: 'FormSubmitted'};
 var author$project$Main$ModelChanged = F2(
 	function (a, b) {
 		return {$: 'ModelChanged', a: a, b: b};
 	});
-var author$project$Main$boolMap = F3(
-	function (bool, _true, _false) {
-		return bool ? _true : _false;
-	});
+var author$project$Main$DictAsTable = {$: 'DictAsTable'};
+var elm$core$String$endsWith = _String_endsWith;
+var elm$core$String$fromFloat = _String_fromNumber;
+var elm$html$Html$div = _VirtualDom_node('div');
+var elm$html$Html$em = _VirtualDom_node('em');
+var elm$html$Html$img = _VirtualDom_node('img');
+var elm$html$Html$li = _VirtualDom_node('li');
 var elm$html$Html$small = _VirtualDom_node('small');
+var elm$html$Html$table = _VirtualDom_node('table');
+var elm$html$Html$tbody = _VirtualDom_node('tbody');
+var elm$html$Html$td = _VirtualDom_node('td');
 var elm$virtual_dom$VirtualDom$text = _VirtualDom_text;
 var elm$html$Html$text = elm$virtual_dom$VirtualDom$text;
+var elm$html$Html$th = _VirtualDom_node('th');
+var elm$html$Html$thead = _VirtualDom_node('thead');
+var elm$html$Html$tr = _VirtualDom_node('tr');
 var elm$html$Html$Attributes$stringProperty = F2(
 	function (key, string) {
 		return A2(
@@ -7600,6 +7607,397 @@ var elm$html$Html$Attributes$stringProperty = F2(
 			elm$json$Json$Encode$string(string));
 	});
 var elm$html$Html$Attributes$class = elm$html$Html$Attributes$stringProperty('className');
+var elm$html$Html$Attributes$src = function (url) {
+	return A2(
+		elm$html$Html$Attributes$stringProperty,
+		'src',
+		_VirtualDom_noJavaScriptOrHtmlUri(url));
+};
+var elm$virtual_dom$VirtualDom$style = _VirtualDom_style;
+var elm$html$Html$Attributes$style = elm$virtual_dom$VirtualDom$style;
+var author$project$Main$renderDictAsCard = function (rows) {
+	var listGroup = F2(
+		function (k, v) {
+			return A2(
+				elm$html$Html$li,
+				_List_fromArray(
+					[
+						elm$html$Html$Attributes$class('list-group-item')
+					]),
+				_List_fromArray(
+					[
+						A2(
+						elm$html$Html$div,
+						_List_Nil,
+						_List_fromArray(
+							[
+								A2(
+								elm$html$Html$small,
+								_List_fromArray(
+									[
+										elm$html$Html$Attributes$class('text-muted'),
+										A2(elm$html$Html$Attributes$style, 'text-transform', 'capitalize')
+									]),
+								_List_fromArray(
+									[
+										elm$html$Html$text(k)
+									]))
+							])),
+						A2(
+						elm$html$Html$div,
+						_List_fromArray(
+							[
+								elm$html$Html$Attributes$class('row-fluid')
+							]),
+						_List_fromArray(
+							[
+								A2(author$project$Main$renderDictValue, author$project$Main$DictAsCard, v)
+							]))
+					]));
+		});
+	return A2(
+		elm$html$Html$div,
+		_List_Nil,
+		A2(
+			elm$core$List$map,
+			function (row) {
+				if (row.$ === 'NestedValue') {
+					var dict = row.a;
+					return A2(
+						elm$html$Html$div,
+						_List_fromArray(
+							[
+								elm$html$Html$Attributes$class('list-group mb-3')
+							]),
+						elm$core$Dict$values(
+							A2(elm$core$Dict$map, listGroup, dict)));
+				} else {
+					return elm$html$Html$text('');
+				}
+			},
+			rows));
+};
+var author$project$Main$renderDictAsTable = F2(
+	function (keys, rows) {
+		return A2(
+			elm$html$Html$table,
+			_List_fromArray(
+				[
+					elm$html$Html$Attributes$class('table table-borderless')
+				]),
+			_List_fromArray(
+				[
+					A2(
+					elm$html$Html$thead,
+					_List_fromArray(
+						[
+							elm$html$Html$Attributes$class('')
+						]),
+					_List_fromArray(
+						[
+							A2(
+							elm$html$Html$tr,
+							_List_Nil,
+							A2(
+								elm$core$List$map,
+								function (k) {
+									return A2(
+										elm$html$Html$th,
+										_List_fromArray(
+											[
+												elm$html$Html$Attributes$class('col'),
+												A2(elm$html$Html$Attributes$style, 'text-transform', 'capitalize')
+											]),
+										_List_fromArray(
+											[
+												elm$html$Html$text(k)
+											]));
+								},
+								keys))
+						])),
+					A2(
+					elm$html$Html$tbody,
+					_List_Nil,
+					A2(
+						elm$core$List$map,
+						function (row) {
+							if (row.$ === 'NestedValue') {
+								var d = row.a;
+								return A2(
+									elm$html$Html$tr,
+									_List_Nil,
+									elm$core$Dict$values(
+										A2(
+											elm$core$Dict$map,
+											F2(
+												function (k, v) {
+													return A2(
+														elm$html$Html$td,
+														_List_Nil,
+														_List_fromArray(
+															[
+																A2(author$project$Main$renderDictValue, author$project$Main$DictAsTable, v)
+															]));
+												}),
+											d)));
+							} else {
+								return elm$html$Html$text('');
+							}
+						},
+						rows))
+				]));
+	});
+var author$project$Main$renderDictValue = F2(
+	function (dstyle, dv) {
+		var raw = function (s) {
+			return A2(
+				elm$html$Html$div,
+				_List_Nil,
+				_List_fromArray(
+					[
+						elm$html$Html$text(s)
+					]));
+		};
+		switch (dv.$) {
+			case 'NullValue':
+				return raw('null');
+			case 'StringValue':
+				var string = dv.a;
+				if (A3(
+					elm$core$List$foldl,
+					F2(
+						function (ext, sum) {
+							return sum || A2(elm$core$String$endsWith, ext, string);
+						}),
+					false,
+					_List_fromArray(
+						['.jpg', '.png', '.gif', '.webp']))) {
+					var _n1 = elm$url$Url$fromString(string);
+					if (_n1.$ === 'Just') {
+						return A2(
+							elm$html$Html$img,
+							_List_fromArray(
+								[
+									elm$html$Html$Attributes$src(string),
+									elm$html$Html$Attributes$class('img-fluid img-thumbnail')
+								]),
+							_List_Nil);
+					} else {
+						return raw(string);
+					}
+				} else {
+					return raw(string);
+				}
+			case 'BoolValue':
+				if (dv.a) {
+					return raw('true');
+				} else {
+					return raw('false');
+				}
+			case 'IntValue':
+				var _int = dv.a;
+				return raw(
+					elm$core$String$fromInt(_int));
+			case 'FloatValue':
+				var _float = dv.a;
+				return raw(
+					elm$core$String$fromFloat(_float));
+			case 'ListValue':
+				if (dv.a.b) {
+					var _n2 = dv.a;
+					var x = _n2.a;
+					var xs = _n2.b;
+					if (x.$ === 'NestedValue') {
+						var dict = x.a;
+						if (dstyle.$ === 'DictAsTable') {
+							return A2(
+								author$project$Main$renderDictAsTable,
+								elm$core$Dict$keys(dict),
+								A2(elm$core$List$cons, x, xs));
+						} else {
+							return author$project$Main$renderDictAsCard(
+								A2(elm$core$List$cons, x, xs));
+						}
+					} else {
+						return A2(
+							elm$html$Html$div,
+							_List_fromArray(
+								[
+									elm$html$Html$Attributes$class('list-group')
+								]),
+							A2(
+								elm$core$List$map,
+								function (v) {
+									return A2(
+										elm$html$Html$li,
+										_List_fromArray(
+											[
+												elm$html$Html$Attributes$class('list-group-item')
+											]),
+										_List_fromArray(
+											[
+												A2(author$project$Main$renderDictValue, dstyle, v)
+											]));
+								},
+								A2(elm$core$List$cons, x, xs)));
+					}
+				} else {
+					return A2(
+						elm$html$Html$em,
+						_List_Nil,
+						_List_fromArray(
+							[
+								elm$html$Html$text('no data')
+							]));
+				}
+			default:
+				var dict = dv.a;
+				return A2(
+					elm$html$Html$div,
+					_List_fromArray(
+						[
+							elm$html$Html$Attributes$class('list-group')
+						]),
+					elm$core$Dict$values(
+						A2(
+							elm$core$Dict$map,
+							F2(
+								function (k, v) {
+									return A2(
+										elm$html$Html$li,
+										_List_fromArray(
+											[
+												elm$html$Html$Attributes$class('list-group-item')
+											]),
+										_List_fromArray(
+											[
+												A2(
+												elm$html$Html$div,
+												_List_Nil,
+												_List_fromArray(
+													[
+														A2(
+														elm$html$Html$small,
+														_List_fromArray(
+															[
+																elm$html$Html$Attributes$class('text-muted'),
+																A2(elm$html$Html$Attributes$style, 'text-transform', 'capitalize')
+															]),
+														_List_fromArray(
+															[
+																elm$html$Html$text(k)
+															]))
+													])),
+												A2(
+												elm$html$Html$div,
+												_List_fromArray(
+													[
+														elm$html$Html$Attributes$class('row-fluid')
+													]),
+												_List_fromArray(
+													[
+														A2(author$project$Main$renderDictValue, dstyle, v)
+													]))
+											]));
+								}),
+							dict)));
+		}
+	});
+var author$project$Main$viewAlert = function (alertMaybe) {
+	if (alertMaybe.$ === 'Just') {
+		var alert = alertMaybe.a;
+		return A2(
+			elm$html$Html$div,
+			_List_fromArray(
+				[
+					elm$html$Html$Attributes$class('row-fluid mt-5')
+				]),
+			_List_fromArray(
+				[
+					A2(
+					elm$html$Html$div,
+					_List_fromArray(
+						[
+							elm$html$Html$Attributes$class('alert alert-' + alert.category)
+						]),
+					_List_fromArray(
+						[
+							elm$html$Html$text(alert.message)
+						]))
+				]));
+	} else {
+		return elm$html$Html$text('');
+	}
+};
+var author$project$Main$renderGraphqlResponse = F2(
+	function (dstyle, graphQLResponse) {
+		return A2(
+			elm$html$Html$div,
+			_List_Nil,
+			_List_fromArray(
+				[
+					function () {
+					var _n0 = graphQLResponse.errors;
+					if ((_n0.$ === 'Just') && _n0.a.b) {
+						var _n1 = _n0.a;
+						var x = _n1.a;
+						var xs = _n1.b;
+						return A2(
+							elm$html$Html$div,
+							_List_Nil,
+							A2(
+								elm$core$List$map,
+								function (err) {
+									return author$project$Main$viewAlert(
+										elm$core$Maybe$Just(
+											{category: 'danger', message: err.message}));
+								},
+								A2(elm$core$List$cons, x, xs)));
+					} else {
+						return elm$html$Html$text('');
+					}
+				}(),
+					function () {
+					var _n2 = graphQLResponse.data;
+					if (_n2.$ === 'Just') {
+						var dictValue = _n2.a;
+						return A2(author$project$Main$renderDictValue, dstyle, dictValue);
+					} else {
+						return elm$html$Html$text('');
+					}
+				}()
+				]));
+	});
+var author$project$Main$renderRemote = F2(
+	function (render, webData) {
+		switch (webData.$) {
+			case 'NotAsked':
+				return elm$html$Html$text('');
+			case 'Loading':
+				return author$project$Main$viewAlert(
+					elm$core$Maybe$Just(
+						{category: 'warning', message: 'Loading...'}));
+			case 'Failure':
+				var err = webData.a;
+				return author$project$Main$viewAlert(
+					elm$core$Maybe$Just(
+						{
+							category: 'danger',
+							message: elm$core$Debug$toString(err)
+						}));
+			default:
+				var data = webData.a;
+				return render(data);
+		}
+	});
+var author$project$Main$ChosenDictRenderStyle = function (a) {
+	return {$: 'ChosenDictRenderStyle', a: a};
+};
+var author$project$Main$FormSubmitted = {$: 'FormSubmitted'};
+var author$project$Main$boolMap = F3(
+	function (bool, _true, _false) {
+		return bool ? _true : _false;
+	});
 var author$project$Main$htmlDescription = function (maybeString) {
 	return A2(
 		elm$html$Html$small,
@@ -7748,7 +8146,7 @@ var elm$core$List$drop = F2(
 var author$project$Main$setModelFormValue = F3(
 	function (keys, model, value) {
 		var _n0 = model.selection;
-		if ((_n0.$ === 'Just') && (_n0.a.$ === 'SelectionNest')) {
+		if ((_n0.$ === 'Success') && (_n0.a.$ === 'SelectionNest')) {
 			var record = _n0.a.a;
 			var newRecord = A3(
 				author$project$Main$setFormValue,
@@ -7758,7 +8156,7 @@ var author$project$Main$setModelFormValue = F3(
 			return _Utils_update(
 				model,
 				{
-					selection: elm$core$Maybe$Just(
+					selection: krisajenkins$remotedata$RemoteData$Success(
 						author$project$Main$SelectionNest(newRecord))
 				});
 		} else {
@@ -7788,7 +8186,6 @@ var elm$core$String$dropRight = F2(
 	function (n, string) {
 		return (n < 1) ? string : A3(elm$core$String$slice, 0, -n, string);
 	});
-var elm$core$String$endsWith = _String_endsWith;
 var elm$core$String$replace = F3(
 	function (before, after, string) {
 		return A2(
@@ -7827,7 +8224,6 @@ var elm$core$List$intersperse = F2(
 			return A2(elm$core$List$cons, hd, spersed);
 		}
 	});
-var elm$html$Html$div = _VirtualDom_node('div');
 var elm$html$Html$h5 = _VirtualDom_node('h5');
 var elm$html$Html$hr = _VirtualDom_node('hr');
 var elm$html$Html$input = _VirtualDom_node('input');
@@ -7845,8 +8241,6 @@ var elm$html$Html$Attributes$boolProperty = F2(
 var elm$html$Html$Attributes$checked = elm$html$Html$Attributes$boolProperty('checked');
 var elm$html$Html$Attributes$for = elm$html$Html$Attributes$stringProperty('htmlFor');
 var elm$html$Html$Attributes$id = elm$html$Html$Attributes$stringProperty('id');
-var elm$virtual_dom$VirtualDom$style = _VirtualDom_style;
-var elm$html$Html$Attributes$style = elm$virtual_dom$VirtualDom$style;
 var elm$html$Html$Attributes$title = elm$html$Html$Attributes$stringProperty('title');
 var elm$html$Html$Attributes$type_ = elm$html$Html$Attributes$stringProperty('type');
 var elm$html$Html$Attributes$value = elm$html$Html$Attributes$stringProperty('value');
@@ -8306,12 +8700,12 @@ var author$project$Main$toggleSelection = F3(
 var author$project$Main$toggleModelSelection = F4(
 	function (typeLookup, keys, model, value) {
 		var _n0 = model.selection;
-		if ((_n0.$ === 'Just') && (_n0.a.$ === 'SelectionNest')) {
+		if ((_n0.$ === 'Success') && (_n0.a.$ === 'SelectionNest')) {
 			var selection = _n0.a.a;
 			return _Utils_update(
 				model,
 				{
-					selection: elm$core$Maybe$Just(
+					selection: krisajenkins$remotedata$RemoteData$Success(
 						A3(
 							author$project$Main$toggleSelection,
 							typeLookup,
@@ -8534,395 +8928,221 @@ var author$project$Main$renderForm = F4(
 						])),
 				bodyFooter)) : A2(elm$html$Html$div, _List_Nil, bodyFooter);
 	});
-var elm$core$String$fromFloat = _String_fromNumber;
-var elm$html$Html$em = _VirtualDom_node('em');
-var elm$html$Html$img = _VirtualDom_node('img');
-var elm$html$Html$li = _VirtualDom_node('li');
-var elm$html$Html$table = _VirtualDom_node('table');
-var elm$html$Html$tbody = _VirtualDom_node('tbody');
-var elm$html$Html$td = _VirtualDom_node('td');
-var elm$html$Html$th = _VirtualDom_node('th');
-var elm$html$Html$thead = _VirtualDom_node('thead');
-var elm$html$Html$tr = _VirtualDom_node('tr');
-var elm$html$Html$Attributes$src = function (url) {
+var elm$html$Html$button = _VirtualDom_node('button');
+var elm$html$Html$code = _VirtualDom_node('code');
+var elm$html$Html$form = _VirtualDom_node('form');
+var elm$html$Html$textarea = _VirtualDom_node('textarea');
+var elm$html$Html$Attributes$disabled = elm$html$Html$Attributes$boolProperty('disabled');
+var elm$html$Html$Attributes$name = elm$html$Html$Attributes$stringProperty('name');
+var elm$html$Html$Events$onClick = function (msg) {
 	return A2(
-		elm$html$Html$Attributes$stringProperty,
-		'src',
-		_VirtualDom_noJavaScriptOrHtmlUri(url));
+		elm$html$Html$Events$on,
+		'click',
+		elm$json$Json$Decode$succeed(msg));
 };
-var author$project$Main$renderDictAsCard = function (rows) {
-	var listGroup = F2(
-		function (k, v) {
-			return A2(
-				elm$html$Html$li,
-				_List_fromArray(
-					[
-						elm$html$Html$Attributes$class('list-group-item')
-					]),
-				_List_fromArray(
-					[
-						A2(
-						elm$html$Html$div,
-						_List_Nil,
-						_List_fromArray(
-							[
-								A2(
-								elm$html$Html$small,
-								_List_fromArray(
-									[
-										elm$html$Html$Attributes$class('text-muted'),
-										A2(elm$html$Html$Attributes$style, 'text-transform', 'capitalize')
-									]),
-								_List_fromArray(
-									[
-										elm$html$Html$text(k)
-									]))
-							])),
-						A2(
-						elm$html$Html$div,
-						_List_fromArray(
-							[
-								elm$html$Html$Attributes$class('row-fluid')
-							]),
-						_List_fromArray(
-							[
-								A2(author$project$Main$renderDictValue, author$project$Main$DictAsCard, v)
-							]))
-					]));
-		});
-	return A2(
-		elm$html$Html$div,
-		_List_Nil,
-		A2(
-			elm$core$List$map,
-			function (row) {
-				if (row.$ === 'NestedValue') {
-					var dict = row.a;
-					return A2(
-						elm$html$Html$div,
-						_List_fromArray(
-							[
-								elm$html$Html$Attributes$class('list-group mb-3')
-							]),
-						elm$core$Dict$values(
-							A2(elm$core$Dict$map, listGroup, dict)));
-				} else {
-					return elm$html$Html$text('');
-				}
-			},
-			rows));
+var elm$html$Html$Events$alwaysPreventDefault = function (msg) {
+	return _Utils_Tuple2(msg, true);
 };
-var author$project$Main$renderDictAsTable = F2(
-	function (keys, rows) {
+var elm$virtual_dom$VirtualDom$MayPreventDefault = function (a) {
+	return {$: 'MayPreventDefault', a: a};
+};
+var elm$html$Html$Events$preventDefaultOn = F2(
+	function (event, decoder) {
 		return A2(
-			elm$html$Html$table,
-			_List_fromArray(
-				[
-					elm$html$Html$Attributes$class('table table-borderless')
-				]),
-			_List_fromArray(
-				[
-					A2(
-					elm$html$Html$thead,
-					_List_fromArray(
-						[
-							elm$html$Html$Attributes$class('')
-						]),
-					_List_fromArray(
-						[
-							A2(
-							elm$html$Html$tr,
-							_List_Nil,
-							A2(
-								elm$core$List$map,
-								function (k) {
-									return A2(
-										elm$html$Html$th,
-										_List_fromArray(
-											[
-												elm$html$Html$Attributes$class('col'),
-												A2(elm$html$Html$Attributes$style, 'text-transform', 'capitalize')
-											]),
-										_List_fromArray(
-											[
-												elm$html$Html$text(k)
-											]));
-								},
-								keys))
-						])),
-					A2(
-					elm$html$Html$tbody,
-					_List_Nil,
-					A2(
-						elm$core$List$map,
-						function (row) {
-							if (row.$ === 'NestedValue') {
-								var d = row.a;
-								return A2(
-									elm$html$Html$tr,
-									_List_Nil,
-									elm$core$Dict$values(
-										A2(
-											elm$core$Dict$map,
-											F2(
-												function (k, v) {
-													return A2(
-														elm$html$Html$td,
-														_List_Nil,
-														_List_fromArray(
-															[
-																A2(author$project$Main$renderDictValue, author$project$Main$DictAsTable, v)
-															]));
-												}),
-											d)));
-							} else {
-								return elm$html$Html$text('');
-							}
-						},
-						rows))
-				]));
+			elm$virtual_dom$VirtualDom$on,
+			event,
+			elm$virtual_dom$VirtualDom$MayPreventDefault(decoder));
 	});
-var author$project$Main$renderDictValue = F2(
-	function (dstyle, dv) {
-		var raw = function (s) {
+var elm$html$Html$Events$onSubmit = function (msg) {
+	return A2(
+		elm$html$Html$Events$preventDefaultOn,
+		'submit',
+		A2(
+			elm$json$Json$Decode$map,
+			elm$html$Html$Events$alwaysPreventDefault,
+			elm$json$Json$Decode$succeed(msg)));
+};
+var author$project$Main$renderSelectionForm = F3(
+	function (typeLookup, model, selection) {
+		if (selection.$ === 'SelectionNest') {
+			var record = selection.a;
 			return A2(
 				elm$html$Html$div,
 				_List_Nil,
 				_List_fromArray(
 					[
-						elm$html$Html$text(s)
-					]));
-		};
-		switch (dv.$) {
-			case 'NullValue':
-				return raw('null');
-			case 'StringValue':
-				var string = dv.a;
-				if (A3(
-					elm$core$List$foldl,
-					F2(
-						function (ext, sum) {
-							return sum || A2(elm$core$String$endsWith, ext, string);
-						}),
-					false,
-					_List_fromArray(
-						['.jpg', '.png', '.gif', '.webp']))) {
-					var _n1 = elm$url$Url$fromString(string);
-					if (_n1.$ === 'Just') {
-						return A2(
-							elm$html$Html$img,
-							_List_fromArray(
-								[
-									elm$html$Html$Attributes$src(string),
-									elm$html$Html$Attributes$class('img-fluid img-thumbnail')
-								]),
-							_List_Nil);
-					} else {
-						return raw(string);
-					}
-				} else {
-					return raw(string);
-				}
-			case 'BoolValue':
-				if (dv.a) {
-					return raw('true');
-				} else {
-					return raw('false');
-				}
-			case 'IntValue':
-				var _int = dv.a;
-				return raw(
-					elm$core$String$fromInt(_int));
-			case 'FloatValue':
-				var _float = dv.a;
-				return raw(
-					elm$core$String$fromFloat(_float));
-			case 'ListValue':
-				if (dv.a.b) {
-					var _n2 = dv.a;
-					var x = _n2.a;
-					var xs = _n2.b;
-					if (x.$ === 'NestedValue') {
-						var dict = x.a;
-						if (dstyle.$ === 'DictAsTable') {
-							return A2(
-								author$project$Main$renderDictAsTable,
-								elm$core$Dict$keys(dict),
-								A2(elm$core$List$cons, x, xs));
-						} else {
-							return author$project$Main$renderDictAsCard(
-								A2(elm$core$List$cons, x, xs));
-						}
-					} else {
-						return A2(
-							elm$html$Html$div,
-							_List_fromArray(
-								[
-									elm$html$Html$Attributes$class('list-group')
-								]),
-							A2(
-								elm$core$List$map,
-								function (v) {
-									return A2(
-										elm$html$Html$li,
-										_List_fromArray(
-											[
-												elm$html$Html$Attributes$class('list-group-item')
-											]),
-										_List_fromArray(
-											[
-												A2(author$project$Main$renderDictValue, dstyle, v)
-											]));
-								},
-								A2(elm$core$List$cons, x, xs)));
-					}
-				} else {
-					return A2(
-						elm$html$Html$em,
-						_List_Nil,
+						A2(
+						elm$html$Html$form,
 						_List_fromArray(
 							[
-								elm$html$Html$text('no data')
-							]));
-				}
-			default:
-				var dict = dv.a;
-				return A2(
-					elm$html$Html$div,
-					_List_fromArray(
-						[
-							elm$html$Html$Attributes$class('list-group')
-						]),
-					elm$core$Dict$values(
-						A2(
-							elm$core$Dict$map,
-							F2(
-								function (k, v) {
-									return A2(
-										elm$html$Html$li,
+								elm$html$Html$Events$onSubmit(author$project$Main$FormSubmitted),
+								elm$html$Html$Attributes$class('mb-3')
+							]),
+						_List_fromArray(
+							[
+								A4(author$project$Main$renderForm, typeLookup, _List_Nil, record.field.name, record),
+								A2(
+								elm$html$Html$div,
+								_List_fromArray(
+									[
+										elm$html$Html$Attributes$class('form-group')
+									]),
+								_List_fromArray(
+									[
+										A2(
+										elm$html$Html$label,
+										_List_Nil,
 										_List_fromArray(
 											[
-												elm$html$Html$Attributes$class('list-group-item')
+												elm$html$Html$text('HTTP Request Headers')
+											])),
+										A2(
+										elm$html$Html$textarea,
+										_List_fromArray(
+											[
+												elm$html$Html$Attributes$class('form-control'),
+												elm$html$Html$Events$onInput(
+												author$project$Main$ModelChanged(
+													F2(
+														function (m, s) {
+															return _Utils_update(
+																m,
+																{apiHeaders: s});
+														})))
 											]),
 										_List_fromArray(
 											[
+												elm$html$Html$text(model.apiHeaders)
+											])),
+										A2(
+										elm$html$Html$small,
+										_List_fromArray(
+											[
+												elm$html$Html$Attributes$class('text-muted')
+											]),
+										_List_fromArray(
+											[
+												elm$html$Html$text('e.g. '),
 												A2(
-												elm$html$Html$div,
+												elm$html$Html$code,
 												_List_Nil,
 												_List_fromArray(
 													[
-														A2(
-														elm$html$Html$small,
-														_List_fromArray(
-															[
-																elm$html$Html$Attributes$class('text-muted'),
-																A2(elm$html$Html$Attributes$style, 'text-transform', 'capitalize')
-															]),
-														_List_fromArray(
-															[
-																elm$html$Html$text(k)
-															]))
-													])),
-												A2(
-												elm$html$Html$div,
-												_List_fromArray(
-													[
-														elm$html$Html$Attributes$class('row-fluid')
-													]),
-												_List_fromArray(
-													[
-														A2(author$project$Main$renderDictValue, dstyle, v)
+														elm$html$Html$text('Authorization: Bearer abc1234')
 													]))
+											]))
+									])),
+								A2(
+								elm$html$Html$div,
+								_List_fromArray(
+									[
+										elm$html$Html$Attributes$class('form-check')
+									]),
+								_List_fromArray(
+									[
+										A2(
+										elm$html$Html$input,
+										_List_fromArray(
+											[
+												elm$html$Html$Attributes$class('form-check-input'),
+												elm$html$Html$Attributes$id('renderDictAsCard'),
+												elm$html$Html$Attributes$type_('radio'),
+												elm$html$Html$Attributes$name('ChosenDictRenderStyle'),
+												elm$html$Html$Attributes$checked(
+												_Utils_eq(model.dstyle, author$project$Main$DictAsCard)),
+												elm$html$Html$Events$onClick(
+												author$project$Main$ChosenDictRenderStyle(author$project$Main$DictAsCard))
+											]),
+										_List_Nil),
+										A2(
+										elm$html$Html$label,
+										_List_fromArray(
+											[
+												elm$html$Html$Attributes$class('form-check-label'),
+												elm$html$Html$Attributes$for('renderDictAsCard')
+											]),
+										_List_fromArray(
+											[
+												elm$html$Html$text('Display data as cards')
+											]))
+									])),
+								A2(
+								elm$html$Html$div,
+								_List_fromArray(
+									[
+										elm$html$Html$Attributes$class('form-check')
+									]),
+								_List_fromArray(
+									[
+										A2(
+										elm$html$Html$input,
+										_List_fromArray(
+											[
+												elm$html$Html$Attributes$class('form-check-input'),
+												elm$html$Html$Attributes$id('renderDictAsTable'),
+												elm$html$Html$Attributes$type_('radio'),
+												elm$html$Html$Attributes$name('ChosenDictRenderStyle'),
+												elm$html$Html$Attributes$checked(
+												_Utils_eq(model.dstyle, author$project$Main$DictAsTable)),
+												elm$html$Html$Events$onClick(
+												author$project$Main$ChosenDictRenderStyle(author$project$Main$DictAsTable))
+											]),
+										_List_Nil),
+										A2(
+										elm$html$Html$label,
+										_List_fromArray(
+											[
+												elm$html$Html$Attributes$class('form-check-label'),
+												elm$html$Html$Attributes$for('renderDictAsTable')
+											]),
+										_List_fromArray(
+											[
+												elm$html$Html$text('Display data as table rows')
+											]))
+									])),
+								A2(
+								elm$html$Html$div,
+								_List_fromArray(
+									[
+										elm$html$Html$Attributes$class('mb-3')
+									]),
+								_List_fromArray(
+									[
+										elm$html$Html$text('')
+									])),
+								function () {
+								var _n1 = model.graphqlResponseResult;
+								if (_n1.$ === 'Loading') {
+									return A2(
+										elm$html$Html$button,
+										_List_fromArray(
+											[
+												elm$html$Html$Attributes$type_('submit'),
+												elm$html$Html$Attributes$disabled(true),
+												elm$html$Html$Attributes$class('btn btn-primary progress-bar-striped progress-bar-animated')
+											]),
+										_List_fromArray(
+											[
+												elm$html$Html$text('Submit')
 											]));
-								}),
-							dict)));
-		}
-	});
-var author$project$Main$viewAlert = function (alertMaybe) {
-	if (alertMaybe.$ === 'Just') {
-		var alert = alertMaybe.a;
-		return A2(
-			elm$html$Html$div,
-			_List_fromArray(
-				[
-					elm$html$Html$Attributes$class('row-fluid mt-5')
-				]),
-			_List_fromArray(
-				[
-					A2(
-					elm$html$Html$div,
-					_List_fromArray(
-						[
-							elm$html$Html$Attributes$class('alert alert-' + alert.category)
-						]),
-					_List_fromArray(
-						[
-							elm$html$Html$text(alert.message)
-						]))
-				]));
-	} else {
-		return elm$html$Html$text('');
-	}
-};
-var author$project$Main$renderGraphqlResponse = F2(
-	function (dstyle, graphQLResponse) {
-		return A2(
-			elm$html$Html$div,
-			_List_Nil,
-			_List_fromArray(
-				[
-					function () {
-					var _n0 = graphQLResponse.errors;
-					if ((_n0.$ === 'Just') && _n0.a.b) {
-						var _n1 = _n0.a;
-						var x = _n1.a;
-						var xs = _n1.b;
-						return A2(
-							elm$html$Html$div,
-							_List_Nil,
-							A2(
-								elm$core$List$map,
-								function (err) {
-									return author$project$Main$viewAlert(
-										elm$core$Maybe$Just(
-											{category: 'danger', message: err.message}));
-								},
-								A2(elm$core$List$cons, x, xs)));
-					} else {
-						return elm$html$Html$text('');
-					}
-				}(),
-					function () {
-					var _n2 = graphQLResponse.data;
-					if (_n2.$ === 'Just') {
-						var dictValue = _n2.a;
-						return A2(author$project$Main$renderDictValue, dstyle, dictValue);
-					} else {
-						return elm$html$Html$text('');
-					}
-				}()
-				]));
-	});
-var author$project$Main$renderRemote = F2(
-	function (render, webData) {
-		switch (webData.$) {
-			case 'NotAsked':
-				return elm$html$Html$text('');
-			case 'Loading':
-				return author$project$Main$viewAlert(
-					elm$core$Maybe$Just(
-						{category: 'warning', message: 'Loading...'}));
-			case 'Failure':
-				var err = webData.a;
-				return author$project$Main$viewAlert(
-					elm$core$Maybe$Just(
-						{
-							category: 'danger',
-							message: elm$core$Debug$toString(err)
-						}));
-			default:
-				var data = webData.a;
-				return render(data);
+								} else {
+									return A2(
+										elm$html$Html$button,
+										_List_fromArray(
+											[
+												elm$html$Html$Attributes$type_('submit'),
+												elm$html$Html$Attributes$class('btn btn-primary')
+											]),
+										_List_fromArray(
+											[
+												elm$html$Html$text('Submit')
+											]));
+								}
+							}()
+							]))
+					]));
+		} else {
+			return elm$html$Html$text('');
 		}
 	});
 var author$project$Main$ChosenSchema = F2(
@@ -8936,12 +9156,6 @@ var elm$html$Html$Attributes$href = function (url) {
 		elm$html$Html$Attributes$stringProperty,
 		'href',
 		_VirtualDom_noJavaScriptUri(url));
-};
-var elm$html$Html$Events$onClick = function (msg) {
-	return A2(
-		elm$html$Html$Events$on,
-		'click',
-		elm$json$Json$Decode$succeed(msg));
 };
 var author$project$Main$viewSchemaType = F2(
 	function (heading, field) {
@@ -8999,18 +9213,12 @@ var elm$browser$Browser$Document = F2(
 	function (title, body) {
 		return {body: body, title: title};
 	});
-var elm$html$Html$button = _VirtualDom_node('button');
-var elm$html$Html$code = _VirtualDom_node('code');
-var elm$html$Html$form = _VirtualDom_node('form');
 var elm$html$Html$main_ = _VirtualDom_node('main');
 var elm$virtual_dom$VirtualDom$node = function (tag) {
 	return _VirtualDom_node(
 		_VirtualDom_noScript(tag));
 };
 var elm$html$Html$node = elm$virtual_dom$VirtualDom$node;
-var elm$html$Html$textarea = _VirtualDom_node('textarea');
-var elm$html$Html$Attributes$disabled = elm$html$Html$Attributes$boolProperty('disabled');
-var elm$html$Html$Attributes$name = elm$html$Html$Attributes$stringProperty('name');
 var elm$html$Html$Attributes$rel = _VirtualDom_attribute('rel');
 var elm$html$Html$Attributes$target = elm$html$Html$Attributes$stringProperty('target');
 var elm$html$Html$Events$onBlur = function (msg) {
@@ -9018,28 +9226,6 @@ var elm$html$Html$Events$onBlur = function (msg) {
 		elm$html$Html$Events$on,
 		'blur',
 		elm$json$Json$Decode$succeed(msg));
-};
-var elm$html$Html$Events$alwaysPreventDefault = function (msg) {
-	return _Utils_Tuple2(msg, true);
-};
-var elm$virtual_dom$VirtualDom$MayPreventDefault = function (a) {
-	return {$: 'MayPreventDefault', a: a};
-};
-var elm$html$Html$Events$preventDefaultOn = F2(
-	function (event, decoder) {
-		return A2(
-			elm$virtual_dom$VirtualDom$on,
-			event,
-			elm$virtual_dom$VirtualDom$MayPreventDefault(decoder));
-	});
-var elm$html$Html$Events$onSubmit = function (msg) {
-	return A2(
-		elm$html$Html$Events$preventDefaultOn,
-		'submit',
-		A2(
-			elm$json$Json$Decode$map,
-			elm$html$Html$Events$alwaysPreventDefault,
-			elm$json$Json$Decode$succeed(msg)));
 };
 var author$project$Main$view = function (model) {
 	var typeLookup = function (s) {
@@ -9225,189 +9411,10 @@ var author$project$Main$view = function (model) {
 									]),
 								_List_fromArray(
 									[
-										function () {
-										var _n1 = model.selection;
-										if ((_n1.$ === 'Just') && (_n1.a.$ === 'SelectionNest')) {
-											var record = _n1.a.a;
-											return A2(
-												elm$html$Html$div,
-												_List_Nil,
-												_List_fromArray(
-													[
-														A2(
-														elm$html$Html$form,
-														_List_fromArray(
-															[
-																elm$html$Html$Events$onSubmit(author$project$Main$FormSubmitted),
-																elm$html$Html$Attributes$class('mb-3')
-															]),
-														_List_fromArray(
-															[
-																A4(author$project$Main$renderForm, typeLookup, _List_Nil, record.field.name, record),
-																A2(
-																elm$html$Html$div,
-																_List_fromArray(
-																	[
-																		elm$html$Html$Attributes$class('form-group')
-																	]),
-																_List_fromArray(
-																	[
-																		A2(
-																		elm$html$Html$label,
-																		_List_Nil,
-																		_List_fromArray(
-																			[
-																				elm$html$Html$text('HTTP Request Headers')
-																			])),
-																		A2(
-																		elm$html$Html$textarea,
-																		_List_fromArray(
-																			[
-																				elm$html$Html$Attributes$class('form-control'),
-																				elm$html$Html$Events$onInput(
-																				author$project$Main$ModelChanged(
-																					F2(
-																						function (m, s) {
-																							return _Utils_update(
-																								m,
-																								{apiHeaders: s});
-																						})))
-																			]),
-																		_List_fromArray(
-																			[
-																				elm$html$Html$text(model.apiHeaders)
-																			])),
-																		A2(
-																		elm$html$Html$small,
-																		_List_fromArray(
-																			[
-																				elm$html$Html$Attributes$class('text-muted')
-																			]),
-																		_List_fromArray(
-																			[
-																				elm$html$Html$text('e.g. '),
-																				A2(
-																				elm$html$Html$code,
-																				_List_Nil,
-																				_List_fromArray(
-																					[
-																						elm$html$Html$text('Authorization: Bearer abc1234')
-																					]))
-																			]))
-																	])),
-																A2(
-																elm$html$Html$div,
-																_List_fromArray(
-																	[
-																		elm$html$Html$Attributes$class('form-check')
-																	]),
-																_List_fromArray(
-																	[
-																		A2(
-																		elm$html$Html$input,
-																		_List_fromArray(
-																			[
-																				elm$html$Html$Attributes$class('form-check-input'),
-																				elm$html$Html$Attributes$id('renderDictAsCard'),
-																				elm$html$Html$Attributes$type_('radio'),
-																				elm$html$Html$Attributes$name('ChosenDictRenderStyle'),
-																				elm$html$Html$Attributes$checked(
-																				_Utils_eq(model.dstyle, author$project$Main$DictAsCard)),
-																				elm$html$Html$Events$onClick(
-																				author$project$Main$ChosenDictRenderStyle(author$project$Main$DictAsCard))
-																			]),
-																		_List_Nil),
-																		A2(
-																		elm$html$Html$label,
-																		_List_fromArray(
-																			[
-																				elm$html$Html$Attributes$class('form-check-label'),
-																				elm$html$Html$Attributes$for('renderDictAsCard')
-																			]),
-																		_List_fromArray(
-																			[
-																				elm$html$Html$text('Display data as cards')
-																			]))
-																	])),
-																A2(
-																elm$html$Html$div,
-																_List_fromArray(
-																	[
-																		elm$html$Html$Attributes$class('form-check')
-																	]),
-																_List_fromArray(
-																	[
-																		A2(
-																		elm$html$Html$input,
-																		_List_fromArray(
-																			[
-																				elm$html$Html$Attributes$class('form-check-input'),
-																				elm$html$Html$Attributes$id('renderDictAsTable'),
-																				elm$html$Html$Attributes$type_('radio'),
-																				elm$html$Html$Attributes$name('ChosenDictRenderStyle'),
-																				elm$html$Html$Attributes$checked(
-																				_Utils_eq(model.dstyle, author$project$Main$DictAsTable)),
-																				elm$html$Html$Events$onClick(
-																				author$project$Main$ChosenDictRenderStyle(author$project$Main$DictAsTable))
-																			]),
-																		_List_Nil),
-																		A2(
-																		elm$html$Html$label,
-																		_List_fromArray(
-																			[
-																				elm$html$Html$Attributes$class('form-check-label'),
-																				elm$html$Html$Attributes$for('renderDictAsTable')
-																			]),
-																		_List_fromArray(
-																			[
-																				elm$html$Html$text('Display data as table rows')
-																			]))
-																	])),
-																A2(
-																elm$html$Html$div,
-																_List_fromArray(
-																	[
-																		elm$html$Html$Attributes$class('mb-3')
-																	]),
-																_List_fromArray(
-																	[
-																		elm$html$Html$text('')
-																	])),
-																function () {
-																var _n2 = model.graphqlResponseResult;
-																if (_n2.$ === 'Loading') {
-																	return A2(
-																		elm$html$Html$button,
-																		_List_fromArray(
-																			[
-																				elm$html$Html$Attributes$type_('submit'),
-																				elm$html$Html$Attributes$disabled(true),
-																				elm$html$Html$Attributes$class('btn btn-primary progress-bar-striped progress-bar-animated')
-																			]),
-																		_List_fromArray(
-																			[
-																				elm$html$Html$text('Submit')
-																			]));
-																} else {
-																	return A2(
-																		elm$html$Html$button,
-																		_List_fromArray(
-																			[
-																				elm$html$Html$Attributes$type_('submit'),
-																				elm$html$Html$Attributes$class('btn btn-primary')
-																			]),
-																		_List_fromArray(
-																			[
-																				elm$html$Html$text('Submit')
-																			]));
-																}
-															}()
-															]))
-													]));
-										} else {
-											return elm$html$Html$text('');
-										}
-									}(),
+										A2(
+										author$project$Main$renderRemote,
+										A2(author$project$Main$renderSelectionForm, typeLookup, model),
+										model.selection),
 										A2(
 										author$project$Main$renderRemote,
 										author$project$Main$renderGraphqlResponse(model.dstyle),

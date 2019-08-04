@@ -46,7 +46,7 @@ type alias Model =
     , type_ : Maybe GraphQL.Type
     , field : Maybe GraphQL.Field
     , selectionKey : String
-    , selection : Maybe Selection
+    , selection : RemoteData.WebData Selection
     , dstyle : DictRenderStyle
     , graphqlResponseResult : RemoteData.WebData GraphQLResponse
     , apiURL : String
@@ -127,19 +127,13 @@ init flags url navKey =
             , apiURL = "https://metaphysics-production.artsy.net/"
             , apiHeaders = ""
             , selectionKey = ""
-            , selection = Nothing
+            , selection = RemoteData.NotAsked
             , dstyle = DictAsCard
-            , graphqlResponseResult =
-                RemoteData.NotAsked
-
-            -- Json.Decode.decodeString decodeGraphQLResponse Templates.artsydataJson
-            --     |> Result.mapError (Json.Decode.errorToString >> Http.BadBody)
-            --     |> RemoteData.fromResult
+            , graphqlResponseResult = RemoteData.NotAsked
             }
     in
     ( model
     , Task.succeed Templates.artsyJson
-        -- |> Task.andThen (\_ -> API.introspect model.apiURL)
         |> Task.attempt OnHttpResponse
     )
 
@@ -198,68 +192,73 @@ view model =
                         ]
                     )
                 , div [ class "col-md-9" ]
-                    [ case model.selection of
-                        Just (SelectionNest record) ->
-                            div []
-                                [ form [ onSubmit FormSubmitted, class "mb-3" ]
-                                    [ renderForm typeLookup [] record.field.name record
-                                    , div [ class "form-group" ]
-                                        [ label [] [ text "HTTP Request Headers" ]
-                                        , textarea
-                                            [ class "form-control"
-                                            , onInput (ModelChanged (\m s -> { m | apiHeaders = s }))
-                                            ]
-                                            [ text model.apiHeaders ]
-                                        , small [ class "text-muted" ]
-                                            [ text "e.g. "
-                                            , code [] [ text "Authorization: Bearer abc1234" ]
-                                            ]
-                                        ]
-                                    , div [ class "form-check" ]
-                                        [ input
-                                            [ class "form-check-input"
-                                            , id "renderDictAsCard"
-                                            , type_ "radio"
-                                            , name "ChosenDictRenderStyle"
-                                            , checked (model.dstyle == DictAsCard)
-                                            , onClick (ChosenDictRenderStyle DictAsCard)
-                                            ]
-                                            []
-                                        , label [ class "form-check-label", for "renderDictAsCard" ] [ text "Display data as cards" ]
-                                        ]
-                                    , div [ class "form-check" ]
-                                        [ input
-                                            [ class "form-check-input"
-                                            , id "renderDictAsTable"
-                                            , type_ "radio"
-                                            , name "ChosenDictRenderStyle"
-                                            , checked (model.dstyle == DictAsTable)
-                                            , onClick (ChosenDictRenderStyle DictAsTable)
-                                            ]
-                                            []
-                                        , label [ class "form-check-label", for "renderDictAsTable" ] [ text "Display data as table rows" ]
-                                        ]
-                                    , div [ class "mb-3" ] [ text "" ]
-                                    , case model.graphqlResponseResult of
-                                        RemoteData.Loading ->
-                                            button [ type_ "submit", disabled True, class "btn btn-primary progress-bar-striped progress-bar-animated" ] [ text "Submit" ]
-
-                                        _ ->
-                                            button [ type_ "submit", class "btn btn-primary" ] [ text "Submit" ]
-                                    ]
-
-                                -- , pre [ class "col-6 pt-3 pb-3", style "white-space" "pre-wrap", style "background-color" "lightgray" ]
-                                --     [ text (formQuery record.field.name record) ]
-                                ]
-
-                        _ ->
-                            text ""
+                    [ renderRemote (renderSelectionForm typeLookup model) model.selection
                     , renderRemote (renderGraphqlResponse model.dstyle) model.graphqlResponseResult
                     , hr [] []
                     ]
                 ]
             ]
         ]
+
+
+renderSelectionForm : (String -> Maybe GraphQL.Type) -> Model -> Selection -> Html Msg
+renderSelectionForm typeLookup model selection =
+    case selection of
+        SelectionNest record ->
+            div []
+                [ form [ onSubmit FormSubmitted, class "mb-3" ]
+                    [ renderForm typeLookup [] record.field.name record
+                    , div [ class "form-group" ]
+                        [ label [] [ text "HTTP Request Headers" ]
+                        , textarea
+                            [ class "form-control"
+                            , onInput (ModelChanged (\m s -> { m | apiHeaders = s }))
+                            ]
+                            [ text model.apiHeaders ]
+                        , small [ class "text-muted" ]
+                            [ text "e.g. "
+                            , code [] [ text "Authorization: Bearer abc1234" ]
+                            ]
+                        ]
+                    , div [ class "form-check" ]
+                        [ input
+                            [ class "form-check-input"
+                            , id "renderDictAsCard"
+                            , type_ "radio"
+                            , name "ChosenDictRenderStyle"
+                            , checked (model.dstyle == DictAsCard)
+                            , onClick (ChosenDictRenderStyle DictAsCard)
+                            ]
+                            []
+                        , label [ class "form-check-label", for "renderDictAsCard" ] [ text "Display data as cards" ]
+                        ]
+                    , div [ class "form-check" ]
+                        [ input
+                            [ class "form-check-input"
+                            , id "renderDictAsTable"
+                            , type_ "radio"
+                            , name "ChosenDictRenderStyle"
+                            , checked (model.dstyle == DictAsTable)
+                            , onClick (ChosenDictRenderStyle DictAsTable)
+                            ]
+                            []
+                        , label [ class "form-check-label", for "renderDictAsTable" ] [ text "Display data as table rows" ]
+                        ]
+                    , div [ class "mb-3" ] [ text "" ]
+                    , case model.graphqlResponseResult of
+                        RemoteData.Loading ->
+                            button [ type_ "submit", disabled True, class "btn btn-primary progress-bar-striped progress-bar-animated" ] [ text "Submit" ]
+
+                        _ ->
+                            button [ type_ "submit", class "btn btn-primary" ] [ text "Submit" ]
+                    ]
+
+                -- , pre [ class "col-6 pt-3 pb-3", style "white-space" "pre-wrap", style "background-color" "lightgray" ]
+                --     [ text (formQuery record.field.name record) ]
+                ]
+
+        _ ->
+            text ""
 
 
 renderGraphqlResponse : DictRenderStyle -> GraphQLResponse -> Html Msg
@@ -489,17 +488,17 @@ update msg model =
         OnHttpResponse (Ok string) ->
             case Json.Decode.decodeString GraphQL.decodeIntrospectResponse string of
                 Err oops ->
-                    ( { model | alert = Just { category = "danger", message = Json.Decode.errorToString oops } }, Cmd.none )
+                    ( { model | alert = Just { category = "danger", message = Json.Decode.errorToString oops }, selection = RemoteData.NotAsked }, Cmd.none )
 
                 Ok resp ->
                     let
                         newTypes =
                             GraphQL.typesDict resp.data.schema.types Dict.empty
                     in
-                    ( { model | alert = Nothing, schema = Just resp.data.schema, types = newTypes }, Cmd.none )
+                    ( { model | alert = Nothing, schema = Just resp.data.schema, types = newTypes, selection = RemoteData.NotAsked }, Cmd.none )
 
         OnHttpResponse (Err err) ->
-            ( { model | alert = Just { category = "danger", message = Debug.toString err } }, Cmd.none )
+            ( { model | alert = Just { category = "danger", message = Debug.toString err }, selection = RemoteData.NotAsked }, Cmd.none )
 
         ChosenSchema heading field ->
             let
@@ -518,7 +517,7 @@ update msg model =
                             model.selection
 
                         Just t ->
-                            Just (SelectionNest (graphqlFieldToForm typeLookup t field True))
+                            RemoteData.Success (SelectionNest (graphqlFieldToForm typeLookup t field True))
             in
             ( { model
                 | type_ = newType
@@ -532,20 +531,20 @@ update msg model =
             )
 
         ApiUrlUpdated ->
-            ( { model | alert = Nothing }
+            ( { model | alert = Nothing, selection = RemoteData.Loading }
             , API.introspect model.apiURL
                 |> Task.attempt OnHttpResponse
             )
 
         FormSubmitted ->
             case model.selection of
-                Just selection ->
+                RemoteData.Success selection ->
                     ( { model | graphqlResponseResult = RemoteData.Loading, alert = Nothing }
                     , httpRequest model.apiURL (textareaToHttpHeaders model.apiHeaders) selection
                         |> Task.attempt OnFormResponse
                     )
 
-                Nothing ->
+                _ ->
                     ( { model | alert = Nothing }, Cmd.none )
 
         OnFormResponse (Ok data) ->
@@ -827,8 +826,8 @@ chooseSelection typeLookup keys key selection =
 toggleModelSelection : (String -> Maybe GraphQL.Type) -> List String -> Model -> String -> Model
 toggleModelSelection typeLookup keys model value =
     case model.selection of
-        Just (SelectionNest selection) ->
-            { model | selection = Just (toggleSelection typeLookup (List.drop 1 keys) (SelectionNest selection)) }
+        RemoteData.Success (SelectionNest selection) ->
+            { model | selection = RemoteData.Success (toggleSelection typeLookup (List.drop 1 keys) (SelectionNest selection)) }
 
         _ ->
             model
@@ -865,12 +864,12 @@ toggleSelection typeLookup keys selection =
 setModelFormValue : List String -> Model -> String -> Model
 setModelFormValue keys model value =
     case model.selection of
-        Just (SelectionNest record) ->
+        RemoteData.Success (SelectionNest record) ->
             let
                 newRecord =
                     setFormValue (List.drop 1 keys) record value
             in
-            { model | selection = Just (SelectionNest newRecord) }
+            { model | selection = RemoteData.Success (SelectionNest newRecord) }
 
         _ ->
             model
