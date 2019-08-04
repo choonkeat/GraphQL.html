@@ -6,13 +6,14 @@ import Browser
 import Browser.Navigation
 import Dict exposing (Dict)
 import GraphQL exposing (typeName)
-import Html exposing (Html, a, button, div, form, h1, h3, h5, hr, input, label, main_, nav, node, option, p, pre, select, small, span, strong, text, ul)
+import Html exposing (Html, a, button, div, form, h1, h3, h5, hr, input, label, li, main_, nav, node, option, p, pre, select, small, span, strong, table, td, text, th, tr, ul)
 import Html.Attributes exposing (attribute, checked, class, disabled, for, href, id, name, placeholder, rel, required, style, title, type_, value)
 import Html.Events exposing (on, onBlur, onClick, onInput, onSubmit)
 import Http
 import Json.Decode
 import Json.Encode
 import List exposing (sum)
+import RemoteData
 import Task exposing (Task)
 import Templates
 import Time
@@ -45,7 +46,7 @@ type alias Model =
     , field : Maybe GraphQL.Field
     , selectionKey : String
     , selection : Maybe Selection
-    , selectionResult : Maybe String
+    , selectionResult : RemoteData.WebData DictValue
     , apiURL : String
     }
 
@@ -64,7 +65,7 @@ type Msg
     | ChosenSchema String GraphQL.Field
     | ApiUrlUpdated
     | FormSubmitted
-    | OnFormResponse (Result Http.Error String)
+    | OnFormResponse (Result Http.Error DictValue)
 
 
 type DictValue
@@ -93,10 +94,6 @@ jsonDecodeDictValue =
 init : Flags -> Url.Url -> Browser.Navigation.Key -> ( Model, Cmd Msg )
 init flags url navKey =
     let
-        _ =
-            Debug.log "response"
-                (Json.Decode.decodeString (Json.Decode.dict jsonDecodeDictValue) Templates.artsydataJson)
-
         model =
             { navKey = navKey
             , alert = Nothing
@@ -107,7 +104,10 @@ init flags url navKey =
             , apiURL = "https://metaphysics-production.artsy.net/"
             , selectionKey = ""
             , selection = Nothing
-            , selectionResult = Nothing
+            , selectionResult =
+                Json.Decode.decodeString jsonDecodeDictValue Templates.artsydataJson
+                    |> Result.mapError (Json.Decode.errorToString >> Http.BadBody)
+                    |> RemoteData.fromResult
             }
     in
     ( model
@@ -168,18 +168,75 @@ view model =
                                     , button [ type_ "submit", class "btn btn-primary" ] [ text "Submit" ]
                                     ]
                                 , pre [ class "col-6 pt-3 pb-3", style "white-space" "pre-wrap", style "background-color" "lightgray" ]
-                                    [ text (formQuery record.field.name record)
-                                    , text "\n\n"
-                                    , text (Maybe.withDefault "" model.selectionResult)
-                                    ]
+                                    [ text (formQuery record.field.name record) ]
                                 ]
 
                         _ ->
                             text ""
+                    , renderRemote renderDictValue model.selectionResult
                     ]
                 ]
             ]
         ]
+
+
+renderDictValue : DictValue -> Html Msg
+renderDictValue dv =
+    let
+        raw s =
+            pre [ class "pt-3 pb-3", style "white-space" "pre-wrap", style "background-color" "lightgray" ]
+                [ text s ]
+    in
+    case dv of
+        StringValue string ->
+            raw string
+
+        BoolValue True ->
+            raw "true"
+
+        BoolValue False ->
+            raw "false"
+
+        IntValue int ->
+            raw (String.fromInt int)
+
+        FloatValue float ->
+            raw (String.fromFloat float)
+
+        ListValue dvList ->
+            ul [] (List.map (\v -> li [] [ renderDictValue v ]) dvList)
+
+        NestedValue dict ->
+            table [ class "table" ]
+                (Dict.map
+                    (\k v ->
+                        tr []
+                            [ th [] [ text k ]
+                            , td [] [ renderDictValue v ]
+                            ]
+                    )
+                    dict
+                    |> Dict.values
+                )
+
+        NullValue ->
+            raw "null"
+
+
+renderRemote : (a -> Html Msg) -> RemoteData.WebData a -> Html Msg
+renderRemote render webData =
+    case webData of
+        RemoteData.NotAsked ->
+            text "not asked"
+
+        RemoteData.Loading ->
+            viewAlert (Just { category = "warning", message = "Loading..." })
+
+        RemoteData.Failure err ->
+            viewAlert (Just { category = "error", message = Debug.toString err })
+
+        RemoteData.Success data ->
+            render data
 
 
 selectionName : Selection -> Maybe String
@@ -306,7 +363,7 @@ update msg model =
         FormSubmitted ->
             case model.selection of
                 Just selection ->
-                    ( model
+                    ( { model | selectionResult = RemoteData.Loading }
                     , httpRequest model.apiURL selection
                         |> Task.attempt OnFormResponse
                     )
@@ -315,7 +372,7 @@ update msg model =
                     ( model, Cmd.none )
 
         OnFormResponse (Ok data) ->
-            ( { model | selectionResult = Just data }, Cmd.none )
+            ( { model | selectionResult = RemoteData.fromResult (Ok data) }, Cmd.none )
 
         OnFormResponse (Err err) ->
             ( { model | alert = Just { category = "danger", message = Debug.toString err } }, Cmd.none )
@@ -333,7 +390,7 @@ subscriptions model =
 --
 
 
-httpRequest : String -> Selection -> Task Http.Error String
+httpRequest : String -> Selection -> Task Http.Error DictValue
 httpRequest apiEndpoint selection =
     case selectionQuery "" selection of
         Nothing ->
@@ -351,7 +408,7 @@ httpRequest apiEndpoint selection =
                 , headers = []
                 , url = apiEndpoint
                 , body = Http.jsonBody httpBody
-                , resolver = Http.stringResolver API.httpStringBodyResolver
+                , resolver = Http.stringResolver (API.httpJsonBodyResolver jsonDecodeDictValue)
                 , timeout = Just 10000
                 }
 
