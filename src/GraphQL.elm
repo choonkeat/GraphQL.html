@@ -259,24 +259,24 @@ type alias Directive =
 
 
 type DirectiveLocation
-    = QUERY
-    | MUTATION
-    | SUBSCRIPTION
-    | FIELD
-    | FRAGMENT_DEFINITION
-    | FRAGMENT_SPREAD
-    | INLINE_FRAGMENT
-    | SCHEMA
-    | SCALAR
-    | OBJECT
-    | FIELD_DEFINITION
-    | ARGUMENT_DEFINITION
-    | INTERFACE
-    | UNION
-    | ENUM
-    | ENUM_VALUE
-    | INPUT_OBJECT
-    | INPUT_FIELD_DEFINITION
+    = DirectiveQUERY
+    | DirectiveMUTATION
+    | DirectiveSUBSCRIPTION
+    | DirectiveFIELD
+    | DirectiveFRAGMENT_DEFINITION
+    | DirectiveFRAGMENT_SPREAD
+    | DirectiveINLINE_FRAGMENT
+    | DirectiveSCHEMA
+    | DirectiveSCALAR
+    | DirectiveOBJECT
+    | DirectiveFIELD_DEFINITION
+    | DirectiveARGUMENT_DEFINITION
+    | DirectiveINTERFACE
+    | DirectiveUNION
+    | DirectiveENUM
+    | DirectiveENUM_VALUE
+    | DirectiveINPUT_OBJECT
+    | DirectiveINPUT_FIELD_DEFINITION
 
 
 {-| Graphql query to obtain schema of endpoint
@@ -573,58 +573,58 @@ decodeDirectiveLocation =
             (\string ->
                 case string of
                     "QUERY" ->
-                        Json.Decode.succeed QUERY
+                        Json.Decode.succeed DirectiveQUERY
 
                     "MUTATION" ->
-                        Json.Decode.succeed MUTATION
+                        Json.Decode.succeed DirectiveMUTATION
 
                     "SUBSCRIPTION" ->
-                        Json.Decode.succeed SUBSCRIPTION
+                        Json.Decode.succeed DirectiveSUBSCRIPTION
 
                     "FIELD" ->
-                        Json.Decode.succeed FIELD
+                        Json.Decode.succeed DirectiveFIELD
 
                     "FRAGMENT_DEFINITION" ->
-                        Json.Decode.succeed FRAGMENT_DEFINITION
+                        Json.Decode.succeed DirectiveFRAGMENT_DEFINITION
 
                     "FRAGMENT_SPREAD" ->
-                        Json.Decode.succeed FRAGMENT_SPREAD
+                        Json.Decode.succeed DirectiveFRAGMENT_SPREAD
 
                     "INLINE_FRAGMENT" ->
-                        Json.Decode.succeed INLINE_FRAGMENT
+                        Json.Decode.succeed DirectiveINLINE_FRAGMENT
 
                     "SCHEMA" ->
-                        Json.Decode.succeed SCHEMA
+                        Json.Decode.succeed DirectiveSCHEMA
 
                     "SCALAR" ->
-                        Json.Decode.succeed SCALAR
+                        Json.Decode.succeed DirectiveSCALAR
 
                     "OBJECT" ->
-                        Json.Decode.succeed OBJECT
+                        Json.Decode.succeed DirectiveOBJECT
 
                     "FIELD_DEFINITION" ->
-                        Json.Decode.succeed FIELD_DEFINITION
+                        Json.Decode.succeed DirectiveFIELD_DEFINITION
 
                     "ARGUMENT_DEFINITION" ->
-                        Json.Decode.succeed ARGUMENT_DEFINITION
+                        Json.Decode.succeed DirectiveARGUMENT_DEFINITION
 
                     "INTERFACE" ->
-                        Json.Decode.succeed INTERFACE
+                        Json.Decode.succeed DirectiveINTERFACE
 
                     "UNION" ->
-                        Json.Decode.succeed UNION
+                        Json.Decode.succeed DirectiveUNION
 
                     "ENUM" ->
-                        Json.Decode.succeed ENUM
+                        Json.Decode.succeed DirectiveENUM
 
                     "ENUM_VALUE" ->
-                        Json.Decode.succeed ENUM_VALUE
+                        Json.Decode.succeed DirectiveENUM_VALUE
 
                     "INPUT_OBJECT" ->
-                        Json.Decode.succeed INPUT_OBJECT
+                        Json.Decode.succeed DirectiveINPUT_OBJECT
 
                     "INPUT_FIELD_DEFINITION" ->
-                        Json.Decode.succeed INPUT_FIELD_DEFINITION
+                        Json.Decode.succeed DirectiveINPUT_FIELD_DEFINITION
 
                     _ ->
                         Json.Decode.fail "Invalid DirectiveLocation"

@@ -5819,24 +5819,24 @@ var author$project$GraphQL$Schema = F5(
 	function (types, queryType, mutationType, subscriptionType, directives) {
 		return {directives: directives, mutationType: mutationType, queryType: queryType, subscriptionType: subscriptionType, types: types};
 	});
-var author$project$GraphQL$ARGUMENT_DEFINITION = {$: 'ARGUMENT_DEFINITION'};
-var author$project$GraphQL$ENUM = {$: 'ENUM'};
-var author$project$GraphQL$ENUM_VALUE = {$: 'ENUM_VALUE'};
-var author$project$GraphQL$FIELD = {$: 'FIELD'};
-var author$project$GraphQL$FIELD_DEFINITION = {$: 'FIELD_DEFINITION'};
-var author$project$GraphQL$FRAGMENT_DEFINITION = {$: 'FRAGMENT_DEFINITION'};
-var author$project$GraphQL$FRAGMENT_SPREAD = {$: 'FRAGMENT_SPREAD'};
-var author$project$GraphQL$INLINE_FRAGMENT = {$: 'INLINE_FRAGMENT'};
-var author$project$GraphQL$INPUT_FIELD_DEFINITION = {$: 'INPUT_FIELD_DEFINITION'};
-var author$project$GraphQL$INPUT_OBJECT = {$: 'INPUT_OBJECT'};
-var author$project$GraphQL$INTERFACE = {$: 'INTERFACE'};
-var author$project$GraphQL$MUTATION = {$: 'MUTATION'};
-var author$project$GraphQL$OBJECT = {$: 'OBJECT'};
-var author$project$GraphQL$QUERY = {$: 'QUERY'};
-var author$project$GraphQL$SCALAR = {$: 'SCALAR'};
-var author$project$GraphQL$SCHEMA = {$: 'SCHEMA'};
-var author$project$GraphQL$SUBSCRIPTION = {$: 'SUBSCRIPTION'};
-var author$project$GraphQL$UNION = {$: 'UNION'};
+var author$project$GraphQL$DirectiveARGUMENT_DEFINITION = {$: 'DirectiveARGUMENT_DEFINITION'};
+var author$project$GraphQL$DirectiveENUM = {$: 'DirectiveENUM'};
+var author$project$GraphQL$DirectiveENUM_VALUE = {$: 'DirectiveENUM_VALUE'};
+var author$project$GraphQL$DirectiveFIELD = {$: 'DirectiveFIELD'};
+var author$project$GraphQL$DirectiveFIELD_DEFINITION = {$: 'DirectiveFIELD_DEFINITION'};
+var author$project$GraphQL$DirectiveFRAGMENT_DEFINITION = {$: 'DirectiveFRAGMENT_DEFINITION'};
+var author$project$GraphQL$DirectiveFRAGMENT_SPREAD = {$: 'DirectiveFRAGMENT_SPREAD'};
+var author$project$GraphQL$DirectiveINLINE_FRAGMENT = {$: 'DirectiveINLINE_FRAGMENT'};
+var author$project$GraphQL$DirectiveINPUT_FIELD_DEFINITION = {$: 'DirectiveINPUT_FIELD_DEFINITION'};
+var author$project$GraphQL$DirectiveINPUT_OBJECT = {$: 'DirectiveINPUT_OBJECT'};
+var author$project$GraphQL$DirectiveINTERFACE = {$: 'DirectiveINTERFACE'};
+var author$project$GraphQL$DirectiveMUTATION = {$: 'DirectiveMUTATION'};
+var author$project$GraphQL$DirectiveOBJECT = {$: 'DirectiveOBJECT'};
+var author$project$GraphQL$DirectiveQUERY = {$: 'DirectiveQUERY'};
+var author$project$GraphQL$DirectiveSCALAR = {$: 'DirectiveSCALAR'};
+var author$project$GraphQL$DirectiveSCHEMA = {$: 'DirectiveSCHEMA'};
+var author$project$GraphQL$DirectiveSUBSCRIPTION = {$: 'DirectiveSUBSCRIPTION'};
+var author$project$GraphQL$DirectiveUNION = {$: 'DirectiveUNION'};
 var elm$json$Json$Decode$andThen = _Json_andThen;
 var elm$json$Json$Decode$fail = _Json_fail;
 var elm$json$Json$Decode$string = _Json_decodeString;
@@ -5846,41 +5846,41 @@ var author$project$GraphQL$decodeDirectiveLocation = A2(
 	function (string) {
 		switch (string) {
 			case 'QUERY':
-				return elm$json$Json$Decode$succeed(author$project$GraphQL$QUERY);
+				return elm$json$Json$Decode$succeed(author$project$GraphQL$DirectiveQUERY);
 			case 'MUTATION':
-				return elm$json$Json$Decode$succeed(author$project$GraphQL$MUTATION);
+				return elm$json$Json$Decode$succeed(author$project$GraphQL$DirectiveMUTATION);
 			case 'SUBSCRIPTION':
-				return elm$json$Json$Decode$succeed(author$project$GraphQL$SUBSCRIPTION);
+				return elm$json$Json$Decode$succeed(author$project$GraphQL$DirectiveSUBSCRIPTION);
 			case 'FIELD':
-				return elm$json$Json$Decode$succeed(author$project$GraphQL$FIELD);
+				return elm$json$Json$Decode$succeed(author$project$GraphQL$DirectiveFIELD);
 			case 'FRAGMENT_DEFINITION':
-				return elm$json$Json$Decode$succeed(author$project$GraphQL$FRAGMENT_DEFINITION);
+				return elm$json$Json$Decode$succeed(author$project$GraphQL$DirectiveFRAGMENT_DEFINITION);
 			case 'FRAGMENT_SPREAD':
-				return elm$json$Json$Decode$succeed(author$project$GraphQL$FRAGMENT_SPREAD);
+				return elm$json$Json$Decode$succeed(author$project$GraphQL$DirectiveFRAGMENT_SPREAD);
 			case 'INLINE_FRAGMENT':
-				return elm$json$Json$Decode$succeed(author$project$GraphQL$INLINE_FRAGMENT);
+				return elm$json$Json$Decode$succeed(author$project$GraphQL$DirectiveINLINE_FRAGMENT);
 			case 'SCHEMA':
-				return elm$json$Json$Decode$succeed(author$project$GraphQL$SCHEMA);
+				return elm$json$Json$Decode$succeed(author$project$GraphQL$DirectiveSCHEMA);
 			case 'SCALAR':
-				return elm$json$Json$Decode$succeed(author$project$GraphQL$SCALAR);
+				return elm$json$Json$Decode$succeed(author$project$GraphQL$DirectiveSCALAR);
 			case 'OBJECT':
-				return elm$json$Json$Decode$succeed(author$project$GraphQL$OBJECT);
+				return elm$json$Json$Decode$succeed(author$project$GraphQL$DirectiveOBJECT);
 			case 'FIELD_DEFINITION':
-				return elm$json$Json$Decode$succeed(author$project$GraphQL$FIELD_DEFINITION);
+				return elm$json$Json$Decode$succeed(author$project$GraphQL$DirectiveFIELD_DEFINITION);
 			case 'ARGUMENT_DEFINITION':
-				return elm$json$Json$Decode$succeed(author$project$GraphQL$ARGUMENT_DEFINITION);
+				return elm$json$Json$Decode$succeed(author$project$GraphQL$DirectiveARGUMENT_DEFINITION);
 			case 'INTERFACE':
-				return elm$json$Json$Decode$succeed(author$project$GraphQL$INTERFACE);
+				return elm$json$Json$Decode$succeed(author$project$GraphQL$DirectiveINTERFACE);
 			case 'UNION':
-				return elm$json$Json$Decode$succeed(author$project$GraphQL$UNION);
+				return elm$json$Json$Decode$succeed(author$project$GraphQL$DirectiveUNION);
 			case 'ENUM':
-				return elm$json$Json$Decode$succeed(author$project$GraphQL$ENUM);
+				return elm$json$Json$Decode$succeed(author$project$GraphQL$DirectiveENUM);
 			case 'ENUM_VALUE':
-				return elm$json$Json$Decode$succeed(author$project$GraphQL$ENUM_VALUE);
+				return elm$json$Json$Decode$succeed(author$project$GraphQL$DirectiveENUM_VALUE);
 			case 'INPUT_OBJECT':
-				return elm$json$Json$Decode$succeed(author$project$GraphQL$INPUT_OBJECT);
+				return elm$json$Json$Decode$succeed(author$project$GraphQL$DirectiveINPUT_OBJECT);
 			case 'INPUT_FIELD_DEFINITION':
-				return elm$json$Json$Decode$succeed(author$project$GraphQL$INPUT_FIELD_DEFINITION);
+				return elm$json$Json$Decode$succeed(author$project$GraphQL$DirectiveINPUT_FIELD_DEFINITION);
 			default:
 				return elm$json$Json$Decode$fail('Invalid DirectiveLocation');
 		}
