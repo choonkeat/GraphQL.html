@@ -171,6 +171,19 @@ view model =
                         , text " for more APIs"
                         ]
                     ]
+                , div [ class "form-group" ]
+                    [ label [] [ text "HTTP Request Headers" ]
+                    , textarea
+                        [ class "form-control"
+                        , onInput (ModelChanged (\m s -> { m | apiHeaders = s }))
+                        , placeholder "optional"
+                        ]
+                        [ text model.apiHeaders ]
+                    , small [ class "text-muted" ]
+                        [ text "e.g. "
+                        , code [] [ text "Authorization: Bearer abc1234" ]
+                        ]
+                    ]
                 ]
             , div [ class "row mt-5" ]
                 [ div [ class "col-md-3", style "word-break" "break-all" ]
@@ -208,18 +221,6 @@ renderSelectionForm typeLookup model selection =
             div []
                 [ form [ onSubmit FormSubmitted, class "mb-3" ]
                     [ renderForm typeLookup [] record.field.name record
-                    , div [ class "form-group" ]
-                        [ label [] [ text "HTTP Request Headers" ]
-                        , textarea
-                            [ class "form-control"
-                            , onInput (ModelChanged (\m s -> { m | apiHeaders = s }))
-                            ]
-                            [ text model.apiHeaders ]
-                        , small [ class "text-muted" ]
-                            [ text "e.g. "
-                            , code [] [ text "Authorization: Bearer abc1234" ]
-                            ]
-                        ]
                     , div [ class "form-check" ]
                         [ input
                             [ class "form-check-input"

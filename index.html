@@ -8929,9 +8929,7 @@ var author$project$Main$renderForm = F4(
 				bodyFooter)) : A2(elm$html$Html$div, _List_Nil, bodyFooter);
 	});
 var elm$html$Html$button = _VirtualDom_node('button');
-var elm$html$Html$code = _VirtualDom_node('code');
 var elm$html$Html$form = _VirtualDom_node('form');
-var elm$html$Html$textarea = _VirtualDom_node('textarea');
 var elm$html$Html$Attributes$disabled = elm$html$Html$Attributes$boolProperty('disabled');
 var elm$html$Html$Attributes$name = elm$html$Html$Attributes$stringProperty('name');
 var elm$html$Html$Events$onClick = function (msg) {
@@ -8981,57 +8979,6 @@ var author$project$Main$renderSelectionForm = F3(
 						_List_fromArray(
 							[
 								A4(author$project$Main$renderForm, typeLookup, _List_Nil, record.field.name, record),
-								A2(
-								elm$html$Html$div,
-								_List_fromArray(
-									[
-										elm$html$Html$Attributes$class('form-group')
-									]),
-								_List_fromArray(
-									[
-										A2(
-										elm$html$Html$label,
-										_List_Nil,
-										_List_fromArray(
-											[
-												elm$html$Html$text('HTTP Request Headers')
-											])),
-										A2(
-										elm$html$Html$textarea,
-										_List_fromArray(
-											[
-												elm$html$Html$Attributes$class('form-control'),
-												elm$html$Html$Events$onInput(
-												author$project$Main$ModelChanged(
-													F2(
-														function (m, s) {
-															return _Utils_update(
-																m,
-																{apiHeaders: s});
-														})))
-											]),
-										_List_fromArray(
-											[
-												elm$html$Html$text(model.apiHeaders)
-											])),
-										A2(
-										elm$html$Html$small,
-										_List_fromArray(
-											[
-												elm$html$Html$Attributes$class('text-muted')
-											]),
-										_List_fromArray(
-											[
-												elm$html$Html$text('e.g. '),
-												A2(
-												elm$html$Html$code,
-												_List_Nil,
-												_List_fromArray(
-													[
-														elm$html$Html$text('Authorization: Bearer abc1234')
-													]))
-											]))
-									])),
 								A2(
 								elm$html$Html$div,
 								_List_fromArray(
@@ -9213,12 +9160,15 @@ var elm$browser$Browser$Document = F2(
 	function (title, body) {
 		return {body: body, title: title};
 	});
+var elm$html$Html$code = _VirtualDom_node('code');
 var elm$html$Html$main_ = _VirtualDom_node('main');
 var elm$virtual_dom$VirtualDom$node = function (tag) {
 	return _VirtualDom_node(
 		_VirtualDom_noScript(tag));
 };
 var elm$html$Html$node = elm$virtual_dom$VirtualDom$node;
+var elm$html$Html$textarea = _VirtualDom_node('textarea');
+var elm$html$Html$Attributes$placeholder = elm$html$Html$Attributes$stringProperty('placeholder');
 var elm$html$Html$Attributes$rel = _VirtualDom_attribute('rel');
 var elm$html$Html$Attributes$target = elm$html$Html$Attributes$stringProperty('target');
 var elm$html$Html$Events$onBlur = function (msg) {
@@ -9320,6 +9270,58 @@ var author$project$Main$view = function (model) {
 														elm$html$Html$text('http://apis.guru/graphql-apis/')
 													])),
 												elm$html$Html$text(' for more APIs')
+											]))
+									])),
+								A2(
+								elm$html$Html$div,
+								_List_fromArray(
+									[
+										elm$html$Html$Attributes$class('form-group')
+									]),
+								_List_fromArray(
+									[
+										A2(
+										elm$html$Html$label,
+										_List_Nil,
+										_List_fromArray(
+											[
+												elm$html$Html$text('HTTP Request Headers')
+											])),
+										A2(
+										elm$html$Html$textarea,
+										_List_fromArray(
+											[
+												elm$html$Html$Attributes$class('form-control'),
+												elm$html$Html$Events$onInput(
+												author$project$Main$ModelChanged(
+													F2(
+														function (m, s) {
+															return _Utils_update(
+																m,
+																{apiHeaders: s});
+														}))),
+												elm$html$Html$Attributes$placeholder('optional')
+											]),
+										_List_fromArray(
+											[
+												elm$html$Html$text(model.apiHeaders)
+											])),
+										A2(
+										elm$html$Html$small,
+										_List_fromArray(
+											[
+												elm$html$Html$Attributes$class('text-muted')
+											]),
+										_List_fromArray(
+											[
+												elm$html$Html$text('e.g. '),
+												A2(
+												elm$html$Html$code,
+												_List_Nil,
+												_List_fromArray(
+													[
+														elm$html$Html$text('Authorization: Bearer abc1234')
+													]))
 											]))
 									]))
 							])),
