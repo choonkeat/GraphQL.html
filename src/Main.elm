@@ -541,7 +541,7 @@ update msg model =
             case model.selection of
                 RemoteData.Success selection ->
                     ( { model | graphqlResponseResult = RemoteData.Loading, alert = Nothing }
-                    , httpRequest model.apiURL (textareaToHttpHeaders model.apiHeaders) selection
+                    , httpRequest model.apiURL (textareaToHttpHeaders model.apiHeaders) model.selectionKey selection
                         |> Task.attempt OnFormResponse
                     )
 
@@ -592,8 +592,8 @@ textareaToHttpHeaders string =
             []
 
 
-httpRequest : String -> List Http.Header -> Selection -> Task Http.Error GraphQLResponse
-httpRequest apiEndpoint headerKeyValues selection =
+httpRequest : String -> List Http.Header -> String -> Selection -> Task Http.Error GraphQLResponse
+httpRequest apiEndpoint headerKeyValues selectionKey selection =
     case selectionQuery "" selection of
         Nothing ->
             Task.fail (Http.BadBody "Incomplete request form")
@@ -602,7 +602,7 @@ httpRequest apiEndpoint headerKeyValues selection =
             let
                 httpBody =
                     Json.Encode.object
-                        [ ( "query", Json.Encode.string ("query{" ++ query ++ "}") )
+                        [ ( "query", Json.Encode.string (selectionKey ++ "{" ++ query ++ "}") )
                         ]
             in
             Http.task

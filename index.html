@@ -7070,8 +7070,8 @@ var author$project$Main$selectionQuery = F2(
 				return elm$core$Maybe$Nothing;
 		}
 	});
-var author$project$Main$httpRequest = F3(
-	function (apiEndpoint, headerKeyValues, selection) {
+var author$project$Main$httpRequest = F4(
+	function (apiEndpoint, headerKeyValues, selectionKey, selection) {
 		var _n0 = A2(author$project$Main$selectionQuery, '', selection);
 		if (_n0.$ === 'Nothing') {
 			return elm$core$Task$fail(
@@ -7083,7 +7083,7 @@ var author$project$Main$httpRequest = F3(
 					[
 						_Utils_Tuple2(
 						'query',
-						elm$json$Json$Encode$string('query{' + (query + '}')))
+						elm$json$Json$Encode$string(selectionKey + ('{' + (query + '}'))))
 					]));
 			return elm$http$Http$task(
 				{
@@ -7487,10 +7487,11 @@ var author$project$Main$update = F2(
 						A2(
 							elm$core$Task$attempt,
 							author$project$Main$OnFormResponse,
-							A3(
+							A4(
 								author$project$Main$httpRequest,
 								model.apiURL,
 								author$project$Main$textareaToHttpHeaders(model.apiHeaders),
+								model.selectionKey,
 								selection)));
 				} else {
 					return _Utils_Tuple2(
