@@ -5,6 +5,7 @@ import Array exposing (Array)
 import Browser
 import Browser.Events exposing (onClick)
 import Browser.Navigation
+import Dev
 import Dict exposing (Dict)
 import GraphQL exposing (typeName)
 import Html exposing (Html, a, button, code, div, em, form, h1, h3, h5, hr, img, input, label, li, main_, nav, node, option, p, pre, select, small, span, strong, table, tbody, td, text, textarea, th, thead, tr, ul)
