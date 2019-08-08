@@ -665,11 +665,11 @@ type alias InputValueDict =
 
 
 type InputValue
-    = InputLeaf { type_ : GraphQL.Type, description : Maybe String, value : Maybe String }
-    | InputNest { type_ : GraphQL.Type, description : Maybe String, selected : Bool } InputValueDict
-    | InputUnion (List InputValue)
-    | InputEnum { type_ : GraphQL.Type, description : Maybe String, value : Maybe String, options : List String }
-    | InputList (List InputValue)
+    = InputLeaf { type_ : GraphQL.Type, description : Maybe String, required : Bool, selected : Bool, value : Maybe String }
+    | InputNest { type_ : GraphQL.Type, description : Maybe String, required : Bool, selected : Bool } InputValueDict
+    | InputUnion { required : Bool, selected : Bool } (List InputValue)
+    | InputEnum { type_ : GraphQL.Type, description : Maybe String, required : Bool, selected : Bool, value : Maybe String, options : List String }
+    | InputList { required : Bool, selected : Bool } (List InputValue)
 
 
 formQuery : String -> SelectionNestAttrs -> String
@@ -748,14 +748,14 @@ inputValueQueryValue inputValue =
                 |> Dict.values
                 |> maybeJoinWrap " " "{" "}"
 
-        InputUnion inputValueList ->
+        InputUnion record inputValueList ->
             List.map inputValueQueryValue inputValueList
                 |> maybeJoinWrap " " "{" "}"
 
         InputEnum record ->
             record.value
 
-        InputList inputValueList ->
+        InputList record inputValueList ->
             List.map inputValueQueryValue inputValueList
                 |> maybeJoinWrap ", " "[" "]"
 
@@ -957,22 +957,24 @@ setInputValue keys value inputValue =
                 x :: xs ->
                     InputNest { record | selected = True } (Dict.update x (Maybe.map (setInputValue xs value)) dict)
 
-        InputUnion inputValueList ->
-            InputUnion (List.map (setInputValue keys value) inputValueList)
+        InputUnion record inputValueList ->
+            InputUnion { record | selected = maybeBool (Just value) } (List.map (setInputValue keys value) inputValueList)
 
         InputEnum record ->
             InputEnum { record | value = Just value }
 
-        InputList inputValueList ->
-            InputList (List.map (setInputValue keys value) inputValueList)
+        InputList record inputValueList ->
+            InputList { record | selected = maybeBool (Just value) } (List.map (setInputValue keys value) inputValueList)
 
 
 renderInputValue : List String -> String -> InputValue -> Html Msg
 renderInputValue keys key inputValue =
     case inputValue of
         InputLeaf record ->
-            case typeName record.type_ of
-                Just "Boolean" ->
+            case ( record.selected, typeName record.type_ ) of
+                -- ( False, _ ) ->
+                --     notChosen key
+                ( _, Just "Boolean" ) ->
                     let
                         fieldName =
                             String.join "-" keys ++ "-" ++ key
@@ -991,7 +993,7 @@ renderInputValue keys key inputValue =
                         , div [] [ htmlDescription record.description ]
                         ]
 
-                Just "Int" ->
+                ( _, Just "Int" ) ->
                     div [ class "form-group" ]
                         [ label [ style "text-transform" "capitalize", title (Debug.toString record) ] [ text (humanize key) ]
                         , input
@@ -1004,7 +1006,7 @@ renderInputValue keys key inputValue =
                         , div [] [ htmlDescription record.description ]
                         ]
 
-                Just "Float" ->
+                ( _, Just "Float" ) ->
                     div [ class "form-group" ]
                         [ label [ style "text-transform" "capitalize", title (Debug.toString record) ] [ text (humanize key) ]
                         , input
@@ -1040,7 +1042,7 @@ renderInputValue keys key inputValue =
                 , div [] [ htmlDescription record.description ]
                 ]
 
-        InputUnion inputValueList ->
+        InputUnion record inputValueList ->
             div []
                 (List.intersperse (hr [] []) (List.map (renderInputValue keys key) inputValueList))
 
@@ -1061,7 +1063,7 @@ renderInputValue keys key inputValue =
                 , div [] [ htmlDescription record.description ]
                 ]
 
-        InputList inputValueList ->
+        InputList record inputValueList ->
             div []
                 (List.intersperse (hr [] []) (List.map (renderInputValue keys key) inputValueList))
 
@@ -1187,12 +1189,22 @@ graphqlTypeToInputValue : (String -> Maybe GraphQL.Type) -> Maybe String -> Mayb
 graphqlTypeToInputValue typeLookup value description graphqlType =
     case graphqlType of
         GraphQL.TypeScalar attrs ->
-            InputLeaf { description = description, type_ = graphqlType, value = value }
+            InputLeaf
+                { description = description
+                , type_ = graphqlType
+                , required = maybeSomething value
+                , selected = maybeSomething value
+                , value = value
+                }
 
         GraphQL.TypeObject attrs ->
             -- TODO: graphqlType.interfaces : Maybe (List Type)
             InputNest
-                { description = description, type_ = graphqlType, selected = maybeSomething value }
+                { description = description
+                , type_ = graphqlType
+                , required = maybeSomething value
+                , selected = maybeSomething value
+                }
                 (attrs.fields
                     |> Maybe.map
                         (List.foldl
@@ -1207,7 +1219,11 @@ graphqlTypeToInputValue typeLookup value description graphqlType =
         GraphQL.TypeInterface attrs ->
             -- TODO: graphqlType.possibleTypes : Maybe (List Type)
             InputNest
-                { description = description, type_ = graphqlType, selected = maybeSomething value }
+                { description = description
+                , type_ = graphqlType
+                , required = maybeSomething value
+                , selected = maybeSomething value
+                }
                 (attrs.fields
                     |> Maybe.map
                         (List.foldl
@@ -1222,13 +1238,15 @@ graphqlTypeToInputValue typeLookup value description graphqlType =
         GraphQL.TypeUnion attrs ->
             attrs.possibleTypes
                 |> Maybe.map (List.map (graphqlTypeToInputValue typeLookup value description))
-                |> Maybe.map InputUnion
-                |> Maybe.withDefault (InputUnion [])
+                |> Maybe.map (InputUnion { required = maybeSomething value, selected = maybeSomething value })
+                |> Maybe.withDefault (InputUnion { required = maybeSomething value, selected = maybeSomething value } [])
 
         GraphQL.TypeEnum attrs ->
             InputEnum
                 { description = description
                 , type_ = graphqlType
+                , required = maybeSomething value
+                , selected = maybeSomething value
                 , value = value
                 , options =
                     attrs.enumValues
@@ -1240,6 +1258,7 @@ graphqlTypeToInputValue typeLookup value description graphqlType =
             InputNest
                 { description = description
                 , type_ = graphqlType
+                , required = maybeSomething value
                 , selected = maybeSomething value
                 }
                 (attrs.inputFields
@@ -1265,7 +1284,7 @@ graphqlTypeToInputValue typeLookup value description graphqlType =
             -- , description : Maybe String
             -- , ofType : Type
             -- }
-            InputList []
+            InputList { required = maybeSomething value, selected = maybeSomething value } []
 
 
 graphqlFieldToInputType : (String -> Maybe GraphQL.Type) -> Maybe String -> GraphQL.Field -> InputValue
@@ -1280,6 +1299,8 @@ graphqlFieldToInputType typeLookup value graphqlField =
     InputLeaf
         { description = Just "graphqlFieldToInputType"
         , type_ = absoluteType typeLookup graphqlField.type_
+        , required = maybeSomething value
+        , selected = False
         , value = Nothing
         }
 
@@ -1304,8 +1325,8 @@ maybeBool boolMaybe =
 
 
 maybeSomething : Maybe a -> Bool
-maybeSomething aMaybe =
-    Maybe.withDefault False (Maybe.map (\_ -> True) aMaybe)
+maybeSomething =
+    Maybe.map (\_ -> True) >> Maybe.withDefault False
 
 
 listWithoutNothing : List (Maybe a) -> List a
@@ -1337,4 +1358,14 @@ absoluteType : (String -> Maybe GraphQL.Type) -> GraphQL.Type -> GraphQL.Type
 absoluteType typeLookup type_ =
     typeName type_
         |> Maybe.andThen typeLookup
+        |> Maybe.map
+            (\t ->
+                case type_ of
+                    GraphQL.TypeNotNull attrs ->
+                        -- need to preserve wrap of type_
+                        GraphQL.TypeNotNull { attrs | ofType = t }
+
+                    _ ->
+                        t
+            )
         |> Maybe.withDefault type_
