@@ -46,6 +46,7 @@ type alias Model =
     , types : Dict String GraphQL.Type
     , type_ : Maybe GraphQL.Type
     , field : Maybe GraphQL.Field
+    , displayQuery : Bool
     , selectionKey : String
     , selection : RemoteData.WebData Selection
     , dstyle : DictRenderStyle
@@ -127,6 +128,7 @@ init flags url navKey =
             , field = Nothing
             , apiURL = "https://metaphysics-production.artsy.net/"
             , apiHeaders = ""
+            , displayQuery = False
             , selectionKey = ""
             , selection = RemoteData.NotAsked
             , dstyle = DictAsCard
@@ -219,48 +221,76 @@ renderSelectionForm : (String -> Maybe GraphQL.Type) -> Model -> Selection -> Ht
 renderSelectionForm typeLookup model selection =
     case selection of
         SelectionNest record ->
-            div []
-                [ form [ onSubmit FormSubmitted, class "mb-3" ]
-                    [ renderForm typeLookup [] record.field.name record
-                    , div [ class "form-check" ]
-                        [ input
-                            [ class "form-check-input"
-                            , id "renderDictAsCard"
-                            , type_ "radio"
-                            , name "ChosenDictRenderStyle"
-                            , checked (model.dstyle == DictAsCard)
-                            , onClick (ChosenDictRenderStyle DictAsCard)
-                            ]
-                            []
-                        , label [ class "form-check-label", for "renderDictAsCard" ] [ text "Display data as cards" ]
-                        ]
-                    , div [ class "form-check" ]
-                        [ input
-                            [ class "form-check-input"
-                            , id "renderDictAsTable"
-                            , type_ "radio"
-                            , name "ChosenDictRenderStyle"
-                            , checked (model.dstyle == DictAsTable)
-                            , onClick (ChosenDictRenderStyle DictAsTable)
-                            ]
-                            []
-                        , label [ class "form-check-label", for "renderDictAsTable" ] [ text "Display data as table rows" ]
-                        ]
-                    , div [ class "mb-3" ] [ text "" ]
-                    , case model.graphqlResponseResult of
-                        RemoteData.Loading ->
-                            button [ type_ "submit", disabled True, class "btn btn-primary progress-bar-striped progress-bar-animated" ] [ text "Submit" ]
-
-                        _ ->
-                            button [ type_ "submit", class "btn btn-primary" ] [ text "Submit" ]
-                    ]
-
-                -- , pre [ class "col-6 pt-3 pb-3", style "white-space" "pre-wrap", style "background-color" "lightgray" ]
-                --     [ text (formQuery record.field.name record) ]
-                ]
+            renderSelectionNestForm typeLookup model record
 
         _ ->
             text ""
+
+
+renderSelectionNestForm : (String -> Maybe GraphQL.Type) -> Model -> SelectionNestAttrs -> Html Msg
+renderSelectionNestForm typeLookup model record =
+    div [ class (boolMap model.displayQuery "row" "") ]
+        [ form [ onSubmit FormSubmitted, class (boolMap model.displayQuery "col-6 mb-3" "mb-3") ]
+            [ renderForm typeLookup [] record.field.name record
+            , div [ class "mb-3" ]
+                [ div [ class "form-check" ]
+                    [ input
+                        [ class "form-check-input"
+                        , id "displayQuery"
+                        , type_ "checkbox"
+                        , checked model.displayQuery
+                        , onInput (ModelChanged (\m s -> { m | displayQuery = not m.displayQuery }))
+                        ]
+                        []
+                    , label [ class "form-check-label", for "displayQuery" ] [ text "Debug: show raw query" ]
+                    ]
+                ]
+            , div [ class "mb-3" ]
+                [ label [] [ text "Display response" ]
+                , div [ class "form-check" ]
+                    [ input
+                        [ class "form-check-input"
+                        , id "renderDictAsCard"
+                        , type_ "radio"
+                        , name "ChosenDictRenderStyle"
+                        , checked (model.dstyle == DictAsCard)
+                        , onClick (ChosenDictRenderStyle DictAsCard)
+                        ]
+                        []
+                    , label [ class "form-check-label", for "renderDictAsCard" ] [ text "as cards" ]
+                    ]
+                , div [ class "form-check" ]
+                    [ input
+                        [ class "form-check-input"
+                        , id "renderDictAsTable"
+                        , type_ "radio"
+                        , name "ChosenDictRenderStyle"
+                        , checked (model.dstyle == DictAsTable)
+                        , onClick (ChosenDictRenderStyle DictAsTable)
+                        ]
+                        []
+                    , label [ class "form-check-label", for "renderDictAsTable" ] [ text "as table rows" ]
+                    ]
+                ]
+            , case model.graphqlResponseResult of
+                RemoteData.Loading ->
+                    button [ type_ "submit", disabled True, class "btn btn-primary progress-bar-striped progress-bar-animated" ] [ text "Submit" ]
+
+                _ ->
+                    button [ type_ "submit", class "btn btn-primary" ] [ text "Submit" ]
+            ]
+        , if model.displayQuery then
+            pre
+                [ class (boolMap model.displayQuery "p-3 col-6" "p-3")
+                , style "white-space" "pre-wrap"
+                , style "word-break" "break-all"
+                , style "background-color" "lightgray"
+                ]
+                [ text (formQuery record.field.name record) ]
+
+          else
+            text ""
+        ]
 
 
 renderGraphqlResponse : DictRenderStyle -> GraphQLResponse -> Html Msg
