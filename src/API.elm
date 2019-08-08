@@ -75,4 +75,6 @@ httpJsonBodyResolver decoder resp =
             Err Http.NetworkError
 
         Http.BadStatus_ m s ->
-            Err (Http.BadStatus m.statusCode)
+            Json.Decode.decodeString decoder s
+                -- just trying; if our decoder understands the response body, great
+                |> Result.mapError (\_ -> Http.BadStatus m.statusCode)
