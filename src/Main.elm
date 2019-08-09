@@ -860,6 +860,11 @@ chooseSelection typeLookup keys key selection =
                     []
                 , label [ for fieldName ]
                     [ text key
+                    , if complicatedType record.field.type_ then
+                        span [ class "ml-2 badge badge-secondary" ] [ text "..." ]
+
+                      else
+                        text ""
                     , div [] [ htmlDescription False record.field.description ]
                     ]
                 ]
@@ -1123,6 +1128,7 @@ graphqlFieldToSelection typeLookup description name graphqlType graphqlField sel
                 SelectionNest (graphqlFieldToForm typeLookup graphqlType graphqlField selected)
 
             GraphQL.TypeUnion attrs ->
+                -- TODO: unsupported
                 SelectionLeaf { type_ = graphqlType, selected = selected, description = description }
 
             GraphQL.TypeEnum attrs ->
@@ -1181,6 +1187,7 @@ graphqlTypeToSelection typeLookup description name graphqlType =
                 |> Maybe.withDefault Dict.empty
 
         GraphQL.TypeUnion attrs ->
+            -- TODO: unsupported
             singleNameSelection attrs
 
         GraphQL.TypeEnum attrs ->
@@ -1249,6 +1256,7 @@ graphqlTypeToInputValue typeLookup value description graphqlType =
                 )
 
         GraphQL.TypeUnion attrs ->
+            -- TODO: unsupported
             attrs.possibleTypes
                 |> Maybe.map (List.map (graphqlTypeToInputValue typeLookup value description))
                 |> Maybe.map (InputUnion { required = maybeSomething value, selected = maybeSomething value })
@@ -1389,3 +1397,61 @@ absoluteType typeLookup type_ =
                         t
             )
         |> Maybe.withDefault type_
+
+
+underlyingType : GraphQL.Type -> GraphQL.Type
+underlyingType type_ =
+    case type_ of
+        GraphQL.TypeScalar attrs ->
+            type_
+
+        GraphQL.TypeObject attrs ->
+            type_
+
+        GraphQL.TypeInterface attrs ->
+            type_
+
+        GraphQL.TypeUnion attrs ->
+            -- TODO: unsupported
+            type_
+
+        GraphQL.TypeEnum attrs ->
+            type_
+
+        GraphQL.TypeInput attrs ->
+            type_
+
+        GraphQL.TypeNotNull attrs ->
+            underlyingType attrs.ofType
+
+        GraphQL.TypeList attrs ->
+            underlyingType attrs.ofType
+
+
+complicatedType : GraphQL.Type -> Bool
+complicatedType type_ =
+    case underlyingType type_ of
+        GraphQL.TypeScalar attrs ->
+            False
+
+        GraphQL.TypeObject attrs ->
+            True
+
+        GraphQL.TypeInterface attrs ->
+            True
+
+        GraphQL.TypeUnion attrs ->
+            -- TODO: unsupported
+            False
+
+        GraphQL.TypeEnum attrs ->
+            False
+
+        GraphQL.TypeInput attrs ->
+            True
+
+        GraphQL.TypeNotNull attrs ->
+            complicatedType attrs.ofType
+
+        GraphQL.TypeList attrs ->
+            complicatedType attrs.ofType
