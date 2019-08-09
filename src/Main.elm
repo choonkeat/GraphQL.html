@@ -726,22 +726,32 @@ inputValueQuery key inputValue =
         |> Maybe.map (\s -> key ++ ":" ++ s)
 
 
+nothingIfBlank : Maybe String -> Maybe String
+nothingIfBlank stringMaybe =
+    case stringMaybe of
+        Just "" ->
+            Nothing
+
+        _ ->
+            stringMaybe
+
+
 inputValueQueryValue : InputValue -> Maybe String
 inputValueQueryValue inputValue =
     case inputValue of
         InputLeaf record ->
             case typeName record.type_ of
                 Just "Boolean" ->
-                    record.value
+                    nothingIfBlank record.value
 
                 Just "Int" ->
-                    record.value
+                    nothingIfBlank record.value
 
                 Just "Float" ->
-                    record.value
+                    nothingIfBlank record.value
 
                 _ ->
-                    Maybe.map Debug.toString record.value
+                    Maybe.map Debug.toString (nothingIfBlank record.value)
 
         InputNest record inputValueStringDict ->
             Dict.map inputValueQuery inputValueStringDict
@@ -753,7 +763,7 @@ inputValueQueryValue inputValue =
                 |> maybeJoinWrap " " "{" "}"
 
         InputEnum record ->
-            record.value
+            nothingIfBlank record.value
 
         InputList record inputValueList ->
             List.map inputValueQueryValue inputValueList
