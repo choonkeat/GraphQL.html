@@ -78,7 +78,10 @@ decodeGraphQLResponse =
 
 
 type alias Flags =
-    {}
+    Maybe
+        { apiURL : String
+        , apiHeaders : String
+        }
 
 
 type Msg
@@ -126,8 +129,8 @@ init flags url navKey =
             , types = Dict.empty
             , type_ = Nothing
             , field = Nothing
-            , apiURL = "https://metaphysics-production.artsy.net/"
-            , apiHeaders = ""
+            , apiURL = Maybe.withDefault "https://metaphysics-production.artsy.net/" (Maybe.map .apiURL flags)
+            , apiHeaders = Maybe.withDefault "" (Maybe.map .apiHeaders flags)
             , displayQuery = False
             , selectionKey = ""
             , selection = RemoteData.NotAsked
