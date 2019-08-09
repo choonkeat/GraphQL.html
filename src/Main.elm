@@ -985,23 +985,27 @@ renderInputValue keys key inputValue =
                 -- ( False, _ ) ->
                 --     notChosen key
                 ( _, Just "Boolean" ) ->
-                    let
-                        fieldName =
-                            String.join "-" keys ++ "-" ++ key
-                    in
-                    div [ class "form-group form-check" ]
-                        [ input
-                            [ type_ "checkbox"
-                            , id fieldName
-                            , class "form-check-input"
-                            , checked (maybeBool record.value)
-                            , value (boolMap (maybeBool record.value) "false" "true") -- opposite
-                            , onInput (ModelChanged (setModelFormValue (List.append keys [ key ])))
+                    if record.required then
+                        let
+                            fieldName =
+                                String.join "-" keys ++ "-" ++ key
+                        in
+                        div [ class "form-group form-check" ]
+                            [ input
+                                [ type_ "checkbox"
+                                , id fieldName
+                                , class "form-check-input"
+                                , checked (maybeBool record.value)
+                                , value (boolMap (maybeBool record.value) "false" "true") -- opposite
+                                , onInput (ModelChanged (setModelFormValue (List.append keys [ key ])))
+                                ]
+                                []
+                            , label [ for fieldName, style "text-transform" "capitalize", title (Debug.toString record) ] [ text (humanize key) ]
+                            , div [] [ htmlDescription record.required record.description ]
                             ]
-                            []
-                        , label [ for fieldName, style "text-transform" "capitalize", title (Debug.toString record) ] [ text (humanize key) ]
-                        , div [] [ htmlDescription record.required record.description ]
-                        ]
+
+                    else
+                        renderInputDropdown keys key record [ "true", "false" ]
 
                 ( _, Just "Int" ) ->
                     div [ class "form-group" ]
@@ -1057,25 +1061,24 @@ renderInputValue keys key inputValue =
                 (List.intersperse (hr [] []) (List.map (renderInputValue keys key) inputValueList))
 
         InputEnum record ->
-            div [ class "form-group" ]
-                [ label [ style "text-transform" "capitalize", title (Debug.toString record) ] [ text (humanize key) ]
-                , select [ class "custom-select", on "change" (decodeSelectChanged (List.append keys [ key ])) ]
-                    (List.append
-                        (case record.value of
-                            Nothing ->
-                                [ option [] [ text "Choose..." ] ]
-
-                            Just s ->
-                                []
-                        )
-                        (List.map (\s -> option [ value s ] [ text (humanize s) ]) record.options)
-                    )
-                , div [] [ htmlDescription record.required record.description ]
-                ]
+            renderInputDropdown keys key record record.options
 
         InputList record inputValueList ->
             div []
                 (List.intersperse (hr [] []) (List.map (renderInputValue keys key) inputValueList))
+
+
+renderInputDropdown : List String -> String -> { a | required : Bool, description : Maybe String } -> List String -> Html Msg
+renderInputDropdown keys key record options =
+    div [ class "form-group" ]
+        [ label [ style "text-transform" "capitalize" ] [ text (humanize key) ]
+        , select [ class "custom-select", on "change" (decodeSelectChanged (List.append keys [ key ])) ]
+            (List.append
+                (boolMap record.required [] [ option [ value "" ] [ text "Choose..." ] ])
+                (List.map (\s -> option [ value s ] [ text (humanize s) ]) options)
+            )
+        , div [] [ htmlDescription record.required record.description ]
+        ]
 
 
 decodeSelectChanged : List String -> Json.Decode.Decoder Msg
