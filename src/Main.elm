@@ -19,6 +19,7 @@ import RemoteData
 import Task exposing (Task)
 import Templates
 import Time
+import UI
 import Url
 
 
@@ -33,15 +34,9 @@ main =
         }
 
 
-type alias Alert =
-    { category : String
-    , message : String
-    }
-
-
 type alias Model =
     { navKey : Browser.Navigation.Key
-    , alert : Maybe Alert
+    , alert : Maybe UI.Alert
     , schema : Maybe GraphQL.Schema
     , types : Dict String GraphQL.Type
     , type_ : Maybe GraphQL.Type
@@ -159,37 +154,36 @@ view model =
         , main_ [ class "container" ]
             [ div [ class "mt-3" ]
                 []
-            , viewAlert model.alert
+            , UI.alert model.alert
             , form []
-                [ div [ class "form-group" ]
-                    [ label [] [ text "GraphQL Endpoint" ]
-                    , input
-                        [ type_ "text"
-                        , class "form-control"
-                        , value model.apiURL
-                        , onBlur ApiUrlUpdated
+                [ UI.inputString
+                    { label = [ text "GraphQL Endpoint" ]
+                    , htmlType = "text"
+                    , value = model.apiURL
+                    , description =
+                        div []
+                            [ text "See "
+                            , a [ href "http://apis.guru/graphql-apis/", target "_blank" ] [ text "http://apis.guru/graphql-apis/" ]
+                            , text " for more APIs"
+                            ]
+                    , attrs =
+                        [ onBlur ApiUrlUpdated
                         , onInput (ModelChanged (\m s -> { m | apiURL = s }))
                         ]
-                        []
-                    , small [ class "text-muted" ]
-                        [ text "See "
-                        , a [ href "http://apis.guru/graphql-apis/", target "_blank" ] [ text "http://apis.guru/graphql-apis/" ]
-                        , text " for more APIs"
-                        ]
-                    ]
-                , div [ class "form-group" ]
-                    [ label [] [ text "HTTP Request Headers" ]
-                    , textarea
-                        [ class "form-control"
-                        , onInput (ModelChanged (\m s -> { m | apiHeaders = s }))
+                    }
+                , UI.inputText
+                    { label = [ text "HTTP Request Headers" ]
+                    , value = model.apiHeaders
+                    , description =
+                        div []
+                            [ text "e.g. "
+                            , code [] [ text "Authorization: Bearer abc1234" ]
+                            ]
+                    , attrs =
+                        [ onInput (ModelChanged (\m s -> { m | apiHeaders = s }))
                         , placeholder "optional"
                         ]
-                        [ text model.apiHeaders ]
-                    , small [ class "text-muted" ]
-                        [ text "e.g. "
-                        , code [] [ text "Authorization: Bearer abc1234" ]
-                        ]
-                    ]
+                    }
                 ]
             , div [ class "row mt-5" ]
                 [ div [ class "col-md-3", style "word-break" "break-all" ]
@@ -236,63 +230,48 @@ renderSelectionNestForm typeLookup model record =
         [ form [ onSubmit FormSubmitted, class (boolMap model.displayQuery "col-6 mb-3" "mb-3") ]
             [ renderForm typeLookup [] record.field.name record
             , div [ class "mb-3" ]
-                [ div [ class "form-check" ]
-                    [ input
-                        [ class "form-check-input"
-                        , id "displayQuery"
-                        , type_ "checkbox"
-                        , checked model.displayQuery
+                [ UI.inputCheckbox
+                    { label = [ text "Debug: show raw query" ]
+                    , description = text ""
+                    , attrs =
+                        [ checked model.displayQuery
                         , onInput (ModelChanged (\m s -> { m | displayQuery = not m.displayQuery }))
                         ]
-                        []
-                    , label [ class "form-check-label", for "displayQuery" ] [ text "Debug: show raw query" ]
-                    ]
+                    }
                 ]
             , div [ class "mb-3" ]
                 [ label [] [ text "Display response" ]
-                , div [ class "form-check" ]
-                    [ input
-                        [ class "form-check-input"
-                        , id "renderDictAsCard"
-                        , type_ "radio"
+                , UI.inputCheckbox
+                    { label = [ text "as cards" ]
+                    , description = text ""
+                    , attrs =
+                        [ type_ "radio"
                         , name "ChosenDictRenderStyle"
                         , checked (model.dstyle == DictAsCard)
                         , onClick (ChosenDictRenderStyle DictAsCard)
                         ]
-                        []
-                    , label [ class "form-check-label", for "renderDictAsCard" ] [ text "as cards" ]
-                    ]
-                , div [ class "form-check" ]
-                    [ input
-                        [ class "form-check-input"
-                        , id "renderDictAsTable"
-                        , type_ "radio"
+                    }
+                , UI.inputCheckbox
+                    { label = [ text "as table rows" ]
+                    , description = text ""
+                    , attrs =
+                        [ type_ "radio"
                         , name "ChosenDictRenderStyle"
                         , checked (model.dstyle == DictAsTable)
                         , onClick (ChosenDictRenderStyle DictAsTable)
                         ]
-                        []
-                    , label [ class "form-check-label", for "renderDictAsTable" ] [ text "as table rows" ]
-                    ]
+                    }
                 ]
             , case model.graphqlResponseResult of
                 RemoteData.Loading ->
-                    button [ type_ "submit", disabled True, class "btn btn-primary progress-bar-striped progress-bar-animated" ] [ text "Submit" ]
+                    UI.submitButton { loading = True }
 
                 _ ->
-                    button [ type_ "submit", class "btn btn-primary" ] [ text "Submit" ]
+                    UI.submitButton { loading = False }
             ]
-        , if model.displayQuery then
-            pre
-                [ class (boolMap model.displayQuery "p-3 col-6" "p-3")
-                , style "white-space" "pre-wrap"
-                , style "word-break" "break-all"
-                , style "background-color" "lightgray"
-                ]
-                [ text (formQuery record.field.name record) ]
-
-          else
-            text ""
+        , maybeRender
+            (UI.codeBlock { attrs = [ class "p-3 col-6" ] })
+            (boolMap model.displayQuery (Just (formQuery record.field.name record)) Nothing)
         ]
 
 
@@ -304,7 +283,7 @@ renderGraphqlResponse dstyle graphQLResponse =
                 div []
                     (x
                         :: xs
-                        |> List.map (\err -> viewAlert (Just { category = "danger", message = err.message }))
+                        |> List.map (\err -> UI.alert (Just { category = "danger", message = err.message }))
                     )
 
             _ ->
@@ -439,10 +418,10 @@ renderRemote render webData =
             text ""
 
         RemoteData.Loading ->
-            viewAlert (Just { category = "warning", message = "Loading..." })
+            UI.alert (Just { category = "warning", message = "Loading..." })
 
         RemoteData.Failure err ->
-            viewAlert (Just { category = "danger", message = Debug.toString err })
+            UI.alert (Just { category = "danger", message = Debug.toString err })
 
         RemoteData.Success data ->
             render data
@@ -472,17 +451,6 @@ selectionForm selection =
 
         SelectionPending record ->
             Nothing
-
-
-viewAlert : Maybe Alert -> Html Msg
-viewAlert alertMaybe =
-    case alertMaybe of
-        Just alert ->
-            div [ class "row-fluid mt-5" ]
-                [ div [ class ("alert alert-" ++ alert.category) ] [ text alert.message ] ]
-
-        Nothing ->
-            text ""
 
 
 viewQueriesNav : String -> List GraphQL.Field -> Html Msg
@@ -595,13 +563,6 @@ update msg model =
 subscriptions : Model -> Sub Msg
 subscriptions model =
     Sub.none
-
-
-
---
---
---
---
 
 
 textareaToHttpHeaders : String -> List Http.Header
@@ -819,57 +780,51 @@ chooseSelection typeLookup keys key selection =
     in
     case selection of
         SelectionLeaf record ->
-            div []
-                [ input
-                    [ type_ "checkbox"
-                    , id fieldName
-                    , class "form-check-input"
-                    , checked record.selected
+            UI.inputCheckbox
+                { label = [ text key ]
+                , description = UI.description record.description
+                , attrs =
+                    [ checked record.selected
                     , value (boolMap record.selected "false" "true") -- opposite
                     , onInput (ModelChanged (toggleModelSelection typeLookup (List.append keys [ key ])))
                     ]
-                    []
-                , label [ for fieldName ]
-                    [ text key
-                    , div [] [ htmlDescription record.description ]
-                    ]
-                ]
+                }
 
         SelectionNest record ->
             div []
-                [ input
-                    [ type_ "checkbox"
-                    , id fieldName
-                    , class "form-check-input"
-                    , checked record.selected
-                    , value (boolMap record.selected "false" "true") -- opposite
-                    , onInput (ModelChanged (toggleModelSelection typeLookup (List.append keys [ key ])))
-                    ]
-                    []
-                , label [ for fieldName ] [ text key ]
+                [ UI.inputCheckbox
+                    { label = [ text key ]
+                    , description = text ""
+                    , attrs =
+                        [ checked record.selected
+                        , value (boolMap record.selected "false" "true") -- opposite
+                        , onInput (ModelChanged (toggleModelSelection typeLookup (List.append keys [ key ])))
+                        ]
+                    }
                 , renderForm typeLookup keys key record
                 ]
 
         SelectionPending record ->
-            div [ class "text-muted d-block" ]
-                [ input
-                    [ type_ "checkbox"
-                    , id fieldName
-                    , class "form-check-input"
-                    , checked False
-                    , value "true" -- opposite
-                    , onInput (ModelChanged (toggleModelSelection typeLookup (List.append keys [ key ])))
-                    ]
-                    []
-                , label [ for fieldName ]
-                    [ text key
-                    , if complicatedType record.field.type_ then
-                        span [ class "ml-2 badge badge-secondary" ] [ text "..." ]
+            let
+                label =
+                    if isComplicated record.field.type_ then
+                        [ text (key ++ " ")
+                        , span [ class "ml-2 badge badge-secondary" ] [ text "..." ]
+                        ]
 
-                      else
-                        text ""
-                    , div [] [ htmlDescription record.field.description ]
-                    ]
+                    else
+                        [ text key ]
+            in
+            div [ class "text-muted d-block" ]
+                [ UI.inputCheckbox
+                    { label = label
+                    , description = UI.description record.field.description
+                    , attrs =
+                        [ checked False
+                        , value "true" -- opposite
+                        , onInput (ModelChanged (toggleModelSelection typeLookup (List.append keys [ key ])))
+                        ]
+                    }
                 ]
 
 
@@ -1004,65 +959,60 @@ renderInputValue keys key inputValue =
                 --     notChosen key
                 ( _, Just "Boolean" ) ->
                     if record.required then
-                        let
-                            fieldName =
-                                String.join "-" keys ++ "-" ++ key
-                        in
-                        div [ class "form-group form-check" ]
-                            [ input
-                                [ type_ "checkbox"
-                                , id fieldName
-                                , class "form-check-input"
-                                , checked (maybeBool record.value)
+                        UI.inputCheckbox
+                            { label = [ text (humanize key) ]
+                            , description = UI.description record.description
+                            , attrs =
+                                [ checked (maybeBool record.value)
                                 , value (boolMap (maybeBool record.value) "false" "true") -- opposite
                                 , onInput (ModelChanged (setModelFormValue (List.append keys [ key ])))
                                 ]
-                                []
-                            , label [ for fieldName, style "text-transform" "capitalize", title (Debug.toString record) ] [ text (humanize key) ]
-                            , div [] [ htmlDescription record.description ]
-                            ]
+                            }
 
                     else
-                        renderInputDropdown keys key record [ "true", "false" ]
+                        UI.inputChoices (ModelChanged (setModelFormValue (List.append keys [ key ])))
+                            { required = record.required
+                            , label = [ text (humanize key) ]
+                            , description = UI.description record.description
+                            , attrs = [ class ("custom-select " ++ maybeInvalidClass record.required record.value) ]
+                            , options = [ "true", "false" ]
+                            }
 
                 ( _, Just "Int" ) ->
-                    div [ class "form-group" ]
-                        [ label [ style "text-transform" "capitalize", title (Debug.toString record) ] [ text (humanize key) ]
-                        , input
-                            [ type_ "number"
-                            , class ("form-control " ++ maybeInvalidClass record.required record.value)
-                            , value (Maybe.withDefault "" record.value)
+                    UI.inputString
+                        { label = [ text (humanize key) ]
+                        , htmlType = "number"
+                        , value = Maybe.withDefault "" record.value
+                        , description = UI.description record.description
+                        , attrs =
+                            [ class ("form-control " ++ maybeInvalidClass record.required record.value)
                             , onInput (ModelChanged (setModelFormValue (List.append keys [ key ])))
                             ]
-                            []
-                        , div [] [ htmlDescription record.description ]
-                        ]
+                        }
 
                 ( _, Just "Float" ) ->
-                    div [ class "form-group" ]
-                        [ label [ style "text-transform" "capitalize", title (Debug.toString record) ] [ text (humanize key) ]
-                        , input
-                            [ type_ "number"
-                            , class ("form-control " ++ maybeInvalidClass record.required record.value)
-                            , value (Maybe.withDefault "" record.value)
+                    UI.inputString
+                        { label = [ text (humanize key) ]
+                        , htmlType = "number"
+                        , value = Maybe.withDefault "" record.value
+                        , description = UI.description record.description
+                        , attrs =
+                            [ class ("form-control " ++ maybeInvalidClass record.required record.value)
                             , onInput (ModelChanged (setModelFormValue (List.append keys [ key ])))
                             ]
-                            []
-                        , div [] [ htmlDescription record.description ]
-                        ]
+                        }
 
                 _ ->
-                    div [ class "form-group" ]
-                        [ label [ style "text-transform" "capitalize", title (Debug.toString record) ] [ text (humanize key) ]
-                        , input
-                            [ type_ "text"
-                            , class ("form-control " ++ maybeInvalidClass record.required record.value)
-                            , value (Maybe.withDefault "" record.value)
+                    UI.inputString
+                        { label = [ text (humanize key) ]
+                        , htmlType = "text"
+                        , value = Maybe.withDefault "" record.value
+                        , description = UI.description record.description
+                        , attrs =
+                            [ class ("form-control " ++ maybeInvalidClass record.required record.value)
                             , onInput (ModelChanged (setModelFormValue (List.append keys [ key ])))
                             ]
-                            []
-                        , div [] [ htmlDescription record.description ]
-                        ]
+                        }
 
         InputNest record inputValueStringDict ->
             div [ class "card mb-3" ]
@@ -1071,7 +1021,7 @@ renderInputValue keys key inputValue =
                     [ text (Maybe.withDefault "" record.description)
                     , div [] (Dict.values (Dict.map (renderInputValue (List.append keys [ key ])) inputValueStringDict))
                     ]
-                , div [ class "col" ] [ htmlDescription record.description ]
+                , div [ class "col" ] [ UI.description record.description ]
                 ]
 
         InputUnion record inputValueList ->
@@ -1079,29 +1029,17 @@ renderInputValue keys key inputValue =
                 (List.intersperse (hr [] []) (List.map (renderInputValue keys key) inputValueList))
 
         InputEnum record ->
-            renderInputDropdown keys key record record.options
+            UI.inputChoices (ModelChanged (setModelFormValue (List.append keys [ key ])))
+                { required = record.required
+                , label = [ text (humanize key) ]
+                , description = UI.description record.description
+                , attrs = [ class ("custom-select " ++ maybeInvalidClass record.required record.value) ]
+                , options = record.options
+                }
 
         InputList record inputValueList ->
             div []
                 (List.intersperse (hr [] []) (List.map (renderInputValue keys key) inputValueList))
-
-
-renderInputDropdown : List String -> String -> { a | required : Bool, description : Maybe String, value : Maybe String } -> List String -> Html Msg
-renderInputDropdown keys key record options =
-    div [ class "form-group" ]
-        [ label [ style "text-transform" "capitalize" ] [ text (humanize key) ]
-        , select [ class ("custom-select " ++ maybeInvalidClass record.required record.value), on "change" (decodeSelectChanged (List.append keys [ key ])) ]
-            (List.append
-                (boolMap record.required [] [ option [ value "" ] [ text "Choose..." ] ])
-                (List.map (\s -> option [ value s ] [ text (humanize s) ]) options)
-            )
-        , div [] [ htmlDescription record.description ]
-        ]
-
-
-decodeSelectChanged : List String -> Json.Decode.Decoder Msg
-decodeSelectChanged keys =
-    Json.Decode.map (ModelChanged (setModelFormValue keys)) Html.Events.targetValue
 
 
 graphqlFieldToForm : (String -> Maybe GraphQL.Type) -> GraphQL.Type -> GraphQL.Field -> Bool -> SelectionNestAttrs
@@ -1113,13 +1051,13 @@ graphqlFieldToForm typeLookup graphqlType graphqlField selected =
         List.foldl
             (\arg dict ->
                 Dict.insert arg.name
-                    (graphqlTypeToInputValue typeLookup Nothing arg.description (absoluteType typeLookup arg.type_))
+                    (graphqlTypeToInputValue typeLookup Nothing arg.description (expandedType typeLookup arg.type_))
                     dict
             )
             Dict.empty
             graphqlField.args
     , selectionDict =
-        absoluteType typeLookup graphqlField.type_
+        expandedType typeLookup graphqlField.type_
             |> graphqlTypeToSelection typeLookup graphqlField.description graphqlField.name
     }
 
@@ -1179,7 +1117,7 @@ graphqlTypeToSelection typeLookup description name graphqlType =
         foldlNameSelection fields =
             List.foldl
                 (\field dict ->
-                    absoluteType typeLookup field.type_
+                    expandedType typeLookup field.type_
                         |> insertNameSelection dict field
                 )
                 Dict.empty
@@ -1210,11 +1148,11 @@ graphqlTypeToSelection typeLookup description name graphqlType =
             singleNameSelection attrs
 
         GraphQL.TypeNotNull attrs ->
-            absoluteType typeLookup attrs.ofType
+            expandedType typeLookup attrs.ofType
                 |> graphqlTypeToSelection typeLookup description name
 
         GraphQL.TypeList attrs ->
-            absoluteType typeLookup attrs.ofType
+            expandedType typeLookup attrs.ofType
                 |> graphqlTypeToSelection typeLookup description name
 
 
@@ -1299,7 +1237,7 @@ graphqlTypeToInputValue typeLookup value description graphqlType =
                     |> Maybe.map
                         (List.foldl
                             (\graphqlInputValue dict ->
-                                absoluteType typeLookup graphqlInputValue.type_
+                                expandedType typeLookup graphqlInputValue.type_
                                     |> graphqlTypeToInputValue typeLookup value graphqlInputValue.description
                                     |> (\inputValue -> Dict.insert graphqlInputValue.name inputValue dict)
                             )
@@ -1309,7 +1247,7 @@ graphqlTypeToInputValue typeLookup value description graphqlType =
                 )
 
         GraphQL.TypeNotNull attrs ->
-            absoluteType typeLookup attrs.ofType
+            expandedType typeLookup attrs.ofType
                 |> graphqlTypeToInputValue typeLookup (Just "") description
 
         GraphQL.TypeList attrs ->
@@ -1332,7 +1270,7 @@ graphqlFieldToInputType typeLookup value graphqlField =
     -- }
     InputLeaf
         { description = Just "graphqlFieldToInputType"
-        , type_ = absoluteType typeLookup graphqlField.type_
+        , type_ = expandedType typeLookup graphqlField.type_
         , required = maybeSomething value
         , selected = False
         , value = Nothing
@@ -1377,19 +1315,16 @@ humanize string =
         String.replace "_" " " string
 
 
-htmlDescription : Maybe String -> Html a
-htmlDescription maybeString =
-    small [ class "text-muted" ] [ text (Maybe.withDefault "" maybeString) ]
-
-
 maybeRender : (a -> Html b) -> Maybe a -> Html b
 maybeRender function aMaybe =
     Maybe.map function aMaybe
         |> Maybe.withDefault (text "")
 
 
-absoluteType : (String -> Maybe GraphQL.Type) -> GraphQL.Type -> GraphQL.Type
-absoluteType typeLookup type_ =
+{-| expand a given type through `typeLookup`
+-}
+expandedType : (String -> Maybe GraphQL.Type) -> GraphQL.Type -> GraphQL.Type
+expandedType typeLookup type_ =
     typeName type_
         |> Maybe.andThen typeLookup
         |> Maybe.map
@@ -1405,8 +1340,10 @@ absoluteType typeLookup type_ =
         |> Maybe.withDefault type_
 
 
-underlyingType : GraphQL.Type -> GraphQL.Type
-underlyingType type_ =
+{-| return the underlying type (unboxed from list/not null)
+-}
+unboxedType : GraphQL.Type -> GraphQL.Type
+unboxedType type_ =
     case type_ of
         GraphQL.TypeScalar attrs ->
             type_
@@ -1428,15 +1365,17 @@ underlyingType type_ =
             type_
 
         GraphQL.TypeNotNull attrs ->
-            underlyingType attrs.ofType
+            unboxedType attrs.ofType
 
         GraphQL.TypeList attrs ->
-            underlyingType attrs.ofType
+            unboxedType attrs.ofType
 
 
-complicatedType : GraphQL.Type -> Bool
-complicatedType type_ =
-    case underlyingType type_ of
+{-| used to indicate if we select this SelectionSet, are we expecting another level of SelectionSets
+-}
+isComplicated : GraphQL.Type -> Bool
+isComplicated type_ =
+    case unboxedType type_ of
         GraphQL.TypeScalar attrs ->
             False
 
@@ -1457,7 +1396,7 @@ complicatedType type_ =
             True
 
         GraphQL.TypeNotNull attrs ->
-            complicatedType attrs.ofType
+            isComplicated attrs.ofType
 
         GraphQL.TypeList attrs ->
-            complicatedType attrs.ofType
+            isComplicated attrs.ofType
