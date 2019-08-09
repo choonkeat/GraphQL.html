@@ -818,7 +818,7 @@ chooseSelection typeLookup keys key selection =
                     []
                 , label [ for fieldName ]
                     [ text key
-                    , div [] [ htmlDescription record.description ]
+                    , div [] [ htmlDescription False record.description ]
                     ]
                 ]
 
@@ -850,7 +850,7 @@ chooseSelection typeLookup keys key selection =
                     []
                 , label [ for fieldName ]
                     [ text key
-                    , div [] [ htmlDescription record.field.description ]
+                    , div [] [ htmlDescription False record.field.description ]
                     ]
                 ]
 
@@ -990,7 +990,7 @@ renderInputValue keys key inputValue =
                             ]
                             []
                         , label [ for fieldName, style "text-transform" "capitalize", title (Debug.toString record) ] [ text (humanize key) ]
-                        , div [] [ htmlDescription record.description ]
+                        , div [] [ htmlDescription record.required record.description ]
                         ]
 
                 ( _, Just "Int" ) ->
@@ -1003,7 +1003,7 @@ renderInputValue keys key inputValue =
                             , onInput (ModelChanged (setModelFormValue (List.append keys [ key ])))
                             ]
                             []
-                        , div [] [ htmlDescription record.description ]
+                        , div [] [ htmlDescription record.required record.description ]
                         ]
 
                 ( _, Just "Float" ) ->
@@ -1016,7 +1016,7 @@ renderInputValue keys key inputValue =
                             , onInput (ModelChanged (setModelFormValue (List.append keys [ key ])))
                             ]
                             []
-                        , div [] [ htmlDescription record.description ]
+                        , div [] [ htmlDescription record.required record.description ]
                         ]
 
                 _ ->
@@ -1029,7 +1029,7 @@ renderInputValue keys key inputValue =
                             , onInput (ModelChanged (setModelFormValue (List.append keys [ key ])))
                             ]
                             []
-                        , div [] [ htmlDescription record.description ]
+                        , div [] [ htmlDescription record.required record.description ]
                         ]
 
         InputNest record inputValueStringDict ->
@@ -1039,7 +1039,7 @@ renderInputValue keys key inputValue =
                     [ text (Maybe.withDefault "" record.description)
                     , div [] (Dict.values (Dict.map (renderInputValue (List.append keys [ key ])) inputValueStringDict))
                     ]
-                , div [] [ htmlDescription record.description ]
+                , div [ class "col" ] [ htmlDescription record.required record.description ]
                 ]
 
         InputUnion record inputValueList ->
@@ -1060,7 +1060,7 @@ renderInputValue keys key inputValue =
                         )
                         (List.map (\s -> option [ value s ] [ text (humanize s) ]) record.options)
                     )
-                , div [] [ htmlDescription record.description ]
+                , div [] [ htmlDescription record.required record.description ]
                 ]
 
         InputList record inputValueList ->
@@ -1343,9 +1343,16 @@ humanize string =
         String.replace "_" " " string
 
 
-htmlDescription : Maybe String -> Html a
-htmlDescription maybeString =
-    small [ class "text-muted" ] [ text (Maybe.withDefault "" maybeString) ]
+htmlDescription : Bool -> Maybe String -> Html a
+htmlDescription required maybeString =
+    small [ class "text-muted" ]
+        [ if required then
+            span [] [ text "Required. " ]
+
+          else
+            text ""
+        , text (Maybe.withDefault "" maybeString)
+        ]
 
 
 maybeRender : (a -> Html b) -> Maybe a -> Html b
