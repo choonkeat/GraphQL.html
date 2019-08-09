@@ -831,7 +831,7 @@ chooseSelection typeLookup keys key selection =
                     []
                 , label [ for fieldName ]
                     [ text key
-                    , div [] [ htmlDescription False record.description ]
+                    , div [] [ htmlDescription record.description ]
                     ]
                 ]
 
@@ -868,7 +868,7 @@ chooseSelection typeLookup keys key selection =
 
                       else
                         text ""
-                    , div [] [ htmlDescription False record.field.description ]
+                    , div [] [ htmlDescription record.field.description ]
                     ]
                 ]
 
@@ -985,6 +985,16 @@ setInputValue keys value inputValue =
             InputList { record | selected = maybeBool (Just value) } (List.map (setInputValue keys value) inputValueList)
 
 
+maybeInvalidClass : Bool -> Maybe String -> String
+maybeInvalidClass required value =
+    case ( required, maybeSomething (nothingIfBlank value) ) of
+        ( True, False ) ->
+            "is-invalid"
+
+        a ->
+            ""
+
+
 renderInputValue : List String -> String -> InputValue -> Html Msg
 renderInputValue keys key inputValue =
     case inputValue of
@@ -1009,7 +1019,7 @@ renderInputValue keys key inputValue =
                                 ]
                                 []
                             , label [ for fieldName, style "text-transform" "capitalize", title (Debug.toString record) ] [ text (humanize key) ]
-                            , div [] [ htmlDescription record.required record.description ]
+                            , div [] [ htmlDescription record.description ]
                             ]
 
                     else
@@ -1020,12 +1030,12 @@ renderInputValue keys key inputValue =
                         [ label [ style "text-transform" "capitalize", title (Debug.toString record) ] [ text (humanize key) ]
                         , input
                             [ type_ "number"
-                            , class "form-control"
+                            , class ("form-control " ++ maybeInvalidClass record.required record.value)
                             , value (Maybe.withDefault "" record.value)
                             , onInput (ModelChanged (setModelFormValue (List.append keys [ key ])))
                             ]
                             []
-                        , div [] [ htmlDescription record.required record.description ]
+                        , div [] [ htmlDescription record.description ]
                         ]
 
                 ( _, Just "Float" ) ->
@@ -1033,12 +1043,12 @@ renderInputValue keys key inputValue =
                         [ label [ style "text-transform" "capitalize", title (Debug.toString record) ] [ text (humanize key) ]
                         , input
                             [ type_ "number"
-                            , class "form-control"
+                            , class ("form-control " ++ maybeInvalidClass record.required record.value)
                             , value (Maybe.withDefault "" record.value)
                             , onInput (ModelChanged (setModelFormValue (List.append keys [ key ])))
                             ]
                             []
-                        , div [] [ htmlDescription record.required record.description ]
+                        , div [] [ htmlDescription record.description ]
                         ]
 
                 _ ->
@@ -1046,12 +1056,12 @@ renderInputValue keys key inputValue =
                         [ label [ style "text-transform" "capitalize", title (Debug.toString record) ] [ text (humanize key) ]
                         , input
                             [ type_ "text"
-                            , class "form-control"
+                            , class ("form-control " ++ maybeInvalidClass record.required record.value)
                             , value (Maybe.withDefault "" record.value)
                             , onInput (ModelChanged (setModelFormValue (List.append keys [ key ])))
                             ]
                             []
-                        , div [] [ htmlDescription record.required record.description ]
+                        , div [] [ htmlDescription record.description ]
                         ]
 
         InputNest record inputValueStringDict ->
@@ -1061,7 +1071,7 @@ renderInputValue keys key inputValue =
                     [ text (Maybe.withDefault "" record.description)
                     , div [] (Dict.values (Dict.map (renderInputValue (List.append keys [ key ])) inputValueStringDict))
                     ]
-                , div [ class "col" ] [ htmlDescription record.required record.description ]
+                , div [ class "col" ] [ htmlDescription record.description ]
                 ]
 
         InputUnion record inputValueList ->
@@ -1076,16 +1086,16 @@ renderInputValue keys key inputValue =
                 (List.intersperse (hr [] []) (List.map (renderInputValue keys key) inputValueList))
 
 
-renderInputDropdown : List String -> String -> { a | required : Bool, description : Maybe String } -> List String -> Html Msg
+renderInputDropdown : List String -> String -> { a | required : Bool, description : Maybe String, value : Maybe String } -> List String -> Html Msg
 renderInputDropdown keys key record options =
     div [ class "form-group" ]
         [ label [ style "text-transform" "capitalize" ] [ text (humanize key) ]
-        , select [ class "custom-select", on "change" (decodeSelectChanged (List.append keys [ key ])) ]
+        , select [ class ("custom-select " ++ maybeInvalidClass record.required record.value), on "change" (decodeSelectChanged (List.append keys [ key ])) ]
             (List.append
                 (boolMap record.required [] [ option [ value "" ] [ text "Choose..." ] ])
                 (List.map (\s -> option [ value s ] [ text (humanize s) ]) options)
             )
-        , div [] [ htmlDescription record.required record.description ]
+        , div [] [ htmlDescription record.description ]
         ]
 
 
@@ -1367,16 +1377,9 @@ humanize string =
         String.replace "_" " " string
 
 
-htmlDescription : Bool -> Maybe String -> Html a
-htmlDescription required maybeString =
-    small [ class "text-muted" ]
-        [ if required then
-            span [] [ text "Required. " ]
-
-          else
-            text ""
-        , text (Maybe.withDefault "" maybeString)
-        ]
+htmlDescription : Maybe String -> Html a
+htmlDescription maybeString =
+    small [ class "text-muted" ] [ text (Maybe.withDefault "" maybeString) ]
 
 
 maybeRender : (a -> Html b) -> Maybe a -> Html b
