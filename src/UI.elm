@@ -111,6 +111,9 @@ breadcrumbs htmlList crumbs lastCrumb =
                     )
                 ]
 
+        "" :: xs ->
+            breadcrumbs htmlList xs lastCrumb
+
         x :: xs ->
             let
                 currentHtml =

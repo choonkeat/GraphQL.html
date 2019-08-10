@@ -5,17 +5,20 @@ import Array exposing (Array)
 import Browser
 import Browser.Events exposing (onClick)
 import Browser.Navigation
+import Const
 import Dev
 import Dict exposing (Dict)
 import GraphQL exposing (typeName)
-import Html exposing (Html, a, button, code, div, em, form, h1, h3, h5, hr, img, input, label, li, main_, nav, node, option, p, pre, select, small, span, strong, table, tbody, td, text, textarea, th, thead, tr, ul)
+import Html exposing (Html, a, button, code, div, em, form, h1, h2, h3, h5, hr, img, input, label, li, main_, nav, node, option, p, pre, select, small, span, strong, table, tbody, td, text, textarea, th, thead, tr, ul)
 import Html.Attributes exposing (attribute, checked, class, disabled, for, href, id, name, placeholder, rel, required, src, style, target, title, type_, value)
 import Html.Events exposing (on, onBlur, onClick, onInput, onSubmit)
 import Http
 import Json.Decode
 import Json.Encode
 import List exposing (sum)
+import Regex
 import RemoteData
+import Route
 import Task exposing (Task)
 import Templates
 import Time
@@ -36,8 +39,10 @@ main =
 
 type alias Model =
     { navKey : Browser.Navigation.Key
+    , route : Route.Route
     , alert : Maybe UI.Alert
-    , schema : Maybe GraphQL.Schema
+    , schemaLookup : Dict String GraphQL.Schema
+    , schema : RemoteData.WebData GraphQL.Schema
     , types : Dict String GraphQL.Type
     , type_ : Maybe GraphQL.Type
     , field : Maybe GraphQL.Field
@@ -46,6 +51,7 @@ type alias Model =
     , selection : RemoteData.WebData Selection
     , dstyle : DictRenderStyle
     , graphqlResponseResult : RemoteData.WebData GraphQLResponse
+    , apiLookup : List { name : String, headers : String, href : String }
     , apiURL : String
     , apiHeaders : String
     }
@@ -83,7 +89,7 @@ type Msg
     = OnUrlRequest Browser.UrlRequest
     | OnUrlChange Url.Url
     | ModelChanged (Model -> String -> Model) String
-    | OnHttpResponse (Result Http.Error String)
+    | OnIntrospectionResponse String (Result Http.Error String)
     | ChosenSchema String GraphQL.Field
     | ApiUrlUpdated
     | FormSubmitted
@@ -117,34 +123,59 @@ jsonDecodeDictValue =
 init : Flags -> Url.Url -> Browser.Navigation.Key -> ( Model, Cmd Msg )
 init flags url navKey =
     let
+        flagApi =
+            flags
+                |> Maybe.map (\f -> [ { name = "default", headers = f.apiHeaders, href = f.apiURL } ])
+                |> Maybe.withDefault []
+
         model =
             { navKey = navKey
+            , route = Route.fromUrl url
             , alert = Nothing
-            , schema = Nothing
+            , schemaLookup = Dict.empty
+            , schema = RemoteData.NotAsked
             , types = Dict.empty
             , type_ = Nothing
             , field = Nothing
-            , apiURL = Maybe.withDefault "https://metaphysics-production.artsy.net/" (Maybe.map .apiURL flags)
-            , apiHeaders = Maybe.withDefault "" (Maybe.map .apiHeaders flags)
             , displayQuery = False
             , selectionKey = ""
             , selection = RemoteData.NotAsked
             , dstyle = DictAsCard
             , graphqlResponseResult = RemoteData.NotAsked
+            , apiLookup =
+                List.append flagApi
+                    [ { name = "Artsy", headers = "", href = "https://metaphysics-production.artsy.net/" }
+                    , { name = "AniList", headers = "", href = "https://graphql.anilist.co/" }
+                    , { name = "Pokemon", headers = "", href = "https://graphql-pokemon.now.sh/?" }
+                    ]
+            , apiURL = ""
+            , apiHeaders = ""
             }
     in
-    ( model
-    , Task.succeed Templates.artsyJson
-        |> Task.attempt OnHttpResponse
-    )
+    updateRoute model.route model
+
+
+routeBreadCrumb : Route.Route -> Html Msg
+routeBreadCrumb routeRoute =
+    case routeRoute of
+        Route.NotFound ->
+            UI.breadcrumbs [] [] "Not found"
+
+        Route.APIs ->
+            UI.breadcrumbs [] [] "Home"
+
+        Route.OperationTypes apiName ->
+            UI.breadcrumbs [] [ "Home" ] apiName
+
+        Route.SelectionSets apiName operationType ->
+            UI.breadcrumbs [] [ "Home", apiName ] operationType
+
+        Route.Request apiName operationType selectionSet ->
+            UI.breadcrumbs [] [ "Home", apiName, operationType ] selectionSet
 
 
 view : Model -> Browser.Document Msg
 view model =
-    let
-        typeLookup s =
-            Dict.get s model.types
-    in
     Browser.Document "App"
         [ node "link"
             [ rel "stylesheet"
@@ -152,66 +183,134 @@ view model =
             ]
             []
         , main_ [ class "container" ]
-            [ div [ class "mt-3" ]
-                []
+            [ div [ class "mt-3", title (Debug.toString model.route) ]
+                [ routeBreadCrumb model.route ]
             , UI.alert model.alert
-            , form []
-                [ UI.inputString
-                    { label = [ text "GraphQL Endpoint" ]
-                    , htmlType = "text"
-                    , value = model.apiURL
-                    , description =
-                        div []
-                            [ text "See "
-                            , a [ href "http://apis.guru/graphql-apis/", target "_blank" ] [ text "http://apis.guru/graphql-apis/" ]
-                            , text " for more APIs"
-                            ]
-                    , attrs =
-                        [ onBlur ApiUrlUpdated
-                        , onInput (ModelChanged (\m s -> { m | apiURL = s }))
-                        ]
-                    }
-                , UI.inputText
-                    { label = [ text "HTTP Request Headers" ]
-                    , value = model.apiHeaders
-                    , description =
-                        div []
-                            [ text "e.g. "
-                            , code [] [ text "Authorization: Bearer abc1234" ]
-                            ]
-                    , attrs =
-                        [ onInput (ModelChanged (\m s -> { m | apiHeaders = s }))
-                        , placeholder "optional"
-                        ]
-                    }
-                ]
-            , div [ class "row mt-5" ]
-                [ div [ class "col-md-3", style "word-break" "break-all" ]
-                    (List.map
-                        (\( heading, maybeHeadingType ) ->
-                            maybeHeadingType
-                                |> Maybe.map
-                                    (\headingType ->
-                                        div [ class "card mb-3" ]
-                                            [ h5 [ class "card-header", style "text-transform" "capitalize" ] [ text heading ]
-                                            , viewQueriesNav heading (GraphQL.fields model.types headingType)
-                                            ]
-                                    )
-                                |> Maybe.withDefault (text "")
+            , case model.route of
+                Route.NotFound ->
+                    a [ href (Const.pathPrefix ++ "/") ] [ text "Go back" ]
+
+                Route.APIs ->
+                    viewAPIs model
+
+                Route.OperationTypes apiName ->
+                    renderRemote (renderGraphqlSchema apiName Nothing model.types) model.schema
+
+                Route.SelectionSets apiName operationType ->
+                    -- TODO: operationType?
+                    renderRemote (renderGraphqlSchema apiName (Just operationType) model.types) model.schema
+
+                Route.Request apiName operationType selectionSet ->
+                    renderRemote
+                        (always
+                            (div []
+                                [ renderRemote (renderSelectionForm (\s -> Dict.get s model.types) model) model.selection
+                                , renderRemote (renderGraphqlResponse model.dstyle) model.graphqlResponseResult
+                                ]
+                            )
                         )
-                        [ ( "query", Maybe.map .queryType model.schema )
-                        , ( "mutation", Maybe.andThen .mutationType model.schema )
-                        , ( "subscription", Maybe.andThen .subscriptionType model.schema )
-                        ]
-                    )
-                , div [ class "col-md-9" ]
-                    [ renderRemote (renderSelectionForm typeLookup model) model.selection
-                    , renderRemote (renderGraphqlResponse model.dstyle) model.graphqlResponseResult
-                    , hr [] []
-                    ]
-                ]
+                        model.schema
             ]
         ]
+
+
+viewAPIs : Model -> Html Msg
+viewAPIs model =
+    let
+        apiItems =
+            model.apiLookup
+                |> List.map
+                    (\row ->
+                        a
+                            [ class "list-group-item list-group-item-action"
+                            , href (Const.pathPrefix ++ "/" ++ row.name ++ "/")
+                            ]
+                            [ text row.name ]
+                    )
+    in
+    div [ class "list-group" ]
+        (List.append apiItems
+            [ div [ class "list-group-item list-group-item-action" ]
+                [ endpointForm model ]
+            ]
+        )
+
+
+endpointForm : Model -> Html Msg
+endpointForm model =
+    form [ onSubmit ApiUrlUpdated ]
+        [ UI.inputString
+            { label = [ text "GraphQL Endpoint" ]
+            , htmlType = "text"
+            , value = model.apiURL
+            , description =
+                div []
+                    [ text "See "
+                    , a [ href "http://apis.guru/graphql-apis/", target "_blank" ] [ text "http://apis.guru/graphql-apis/" ]
+                    , text " for more APIs"
+                    ]
+            , attrs =
+                [ onInput (ModelChanged (\m s -> { m | apiURL = s }))
+                ]
+            }
+        , UI.inputText
+            { label = [ text "HTTP Request Headers" ]
+            , value = model.apiHeaders
+            , description =
+                div []
+                    [ text "e.g. "
+                    , code [] [ text "Authorization: Bearer abc1234" ]
+                    ]
+            , attrs =
+                [ onInput (ModelChanged (\m s -> { m | apiHeaders = s }))
+                , placeholder "optional"
+                ]
+            }
+        , UI.submitButton { loading = False }
+        ]
+
+
+renderGraphqlSchema : String -> Maybe String -> Dict String GraphQL.Type -> GraphQL.Schema -> Html Msg
+renderGraphqlSchema apiName maybeOperation types schemaGraphQL =
+    let
+        operationTypes =
+            [ ( "query", Just schemaGraphQL.queryType )
+            , ( "mutation", schemaGraphQL.mutationType )
+            , ( "subscription", schemaGraphQL.subscriptionType )
+            ]
+                |> List.filter (\( k, _ ) -> Maybe.withDefault k maybeOperation == k)
+
+        renderCard ( heading, maybeHeadingType ) =
+            case maybeHeadingType of
+                Nothing ->
+                    text ""
+
+                Just headingType ->
+                    div [ class "card mb-3" ]
+                        [ h5 [ class "card-header", style "text-transform" "capitalize" ]
+                            [ text heading ]
+                        , viewQueriesNav (Const.pathPrefix ++ "/" ++ apiName ++ "/" ++ heading) (GraphQL.fields types headingType)
+                        ]
+    in
+    div [] (List.map renderCard operationTypes)
+
+
+fieldsOf : Dict String GraphQL.Type -> GraphQL.Schema -> String -> Maybe (List GraphQL.Field)
+fieldsOf types schemaGraphQL operationName =
+    Maybe.map (GraphQL.fields types)
+        (case operationName of
+            "mutation" ->
+                schemaGraphQL.mutationType
+
+            "subscription" ->
+                schemaGraphQL.subscriptionType
+
+            "query" ->
+                Just schemaGraphQL.queryType
+
+            _ ->
+                Nothing
+        )
 
 
 renderSelectionForm : (String -> Maybe GraphQL.Type) -> Model -> Selection -> Html Msg
@@ -454,21 +553,127 @@ selectionForm selection =
 
 
 viewQueriesNav : String -> List GraphQL.Field -> Html Msg
-viewQueriesNav heading list =
-    div [ class "list-group-flush", style "overflow-y" "scroll", style "height" "20em", style "margin-top" "-1px" ]
-        (List.map (viewSchemaType heading) list)
+viewQueriesNav pathPrefix list =
+    div [ class "list-group-flush", style "margin-top" "-1px" ]
+        (List.map (viewSchemaType pathPrefix) list)
 
 
 viewSchemaType : String -> GraphQL.Field -> Html Msg
-viewSchemaType heading field =
+viewSchemaType pathPrefix field =
     a
         [ class "list-group-item list-group-item-action"
-        , href "#"
-        , onClick (ChosenSchema heading field)
+        , href (pathPrefix ++ "/" ++ field.name ++ "/")
         ]
         [ h5 [ class "mb-1" ] [ text field.name ]
         , p [ class "mb-1" ] [ text (Maybe.withDefault "" field.description) ]
         ]
+
+
+updateRoute : Route.Route -> Model -> ( Model, Cmd Msg )
+updateRoute routeRoute model =
+    let
+        modelWithSchema apiName =
+            let
+                maybeAPI =
+                    model.apiLookup
+                        |> List.map (\row -> ( row.name, row ))
+                        |> Dict.fromList
+                        |> Dict.get apiName
+            in
+            case ( maybeAPI, Maybe.andThen (\api -> Dict.get api.href model.schemaLookup) maybeAPI ) of
+                ( _, Just schema ) ->
+                    ( { model | schema = RemoteData.Success schema }, Cmd.none )
+
+                ( Just api, Nothing ) ->
+                    ( { model | alert = Nothing, schema = RemoteData.Loading, apiURL = api.href, apiHeaders = api.headers }
+                    , Task.attempt (OnIntrospectionResponse api.href) (API.introspect (Debug.log "introspecting" api.href))
+                    )
+
+                _ ->
+                    ( { model | alert = Just { category = "danger", message = "Unknown API: " ++ apiName } }, Cmd.none )
+    in
+    case routeRoute of
+        Route.NotFound ->
+            ( model, Cmd.none )
+
+        Route.APIs ->
+            ( { model | alert = Nothing, schema = RemoteData.NotAsked }, Cmd.none )
+
+        Route.OperationTypes apiName ->
+            modelWithSchema apiName
+
+        Route.SelectionSets apiName operationType ->
+            let
+                ( newModel, newCmd ) =
+                    modelWithSchema apiName
+            in
+            ( newModel, newCmd )
+
+        Route.Request apiName operationType selectionSet ->
+            let
+                ( newModel, newCmd ) =
+                    modelWithSchema apiName
+            in
+            case newModel.schema of
+                RemoteData.NotAsked ->
+                    ( newModel, newCmd )
+
+                RemoteData.Loading ->
+                    ( newModel, newCmd )
+
+                RemoteData.Failure err ->
+                    ( { newModel | alert = Just { category = "danger", message = Debug.toString err } }, newCmd )
+
+                RemoteData.Success schema ->
+                    case fieldsOf newModel.types schema operationType of
+                        Nothing ->
+                            ( { newModel | alert = Just { category = "danger", message = "fields of found: " ++ operationType } }, Cmd.none )
+
+                        Just fields ->
+                            case
+                                List.foldl
+                                    (\field sum ->
+                                        if field.name == selectionSet then
+                                            Just field
+
+                                        else
+                                            sum
+                                    )
+                                    Nothing
+                                    fields
+                            of
+                                Nothing ->
+                                    ( { newModel | alert = Just { category = "danger", message = "Field not found: " ++ selectionSet } }, Cmd.none )
+
+                                Just field ->
+                                    let
+                                        typeLookup s =
+                                            Dict.get s newModel.types
+
+                                        newType =
+                                            GraphQL.fieldType newModel.types field
+
+                                        newField =
+                                            Just field
+
+                                        newSelection =
+                                            case newType of
+                                                Nothing ->
+                                                    newModel.selection
+
+                                                Just t ->
+                                                    RemoteData.Success (SelectionNest (graphqlFieldToForm typeLookup t field True))
+                                    in
+                                    ( { newModel
+                                        | type_ = newType
+                                        , field = newField
+                                        , selectionKey = operationType
+                                        , selection = newSelection
+                                        , graphqlResponseResult = RemoteData.NotAsked
+                                        , alert = Nothing
+                                      }
+                                    , Cmd.none
+                                    )
 
 
 update : Msg -> Model -> ( Model, Cmd Msg )
@@ -483,12 +688,16 @@ update msg model =
 
         -- [url] given that we _are at this url_ how should our model change?
         OnUrlChange urlUrl ->
-            ( model, Cmd.none )
+            let
+                newRoute =
+                    Route.fromUrl urlUrl
+            in
+            updateRoute newRoute { model | route = newRoute }
 
         ModelChanged function string ->
             ( function model string, Cmd.none )
 
-        OnHttpResponse (Ok string) ->
+        OnIntrospectionResponse apiURL (Ok string) ->
             case Json.Decode.decodeString GraphQL.decodeIntrospectResponse string of
                 Err oops ->
                     ( { model | alert = Just { category = "danger", message = Json.Decode.errorToString oops }, selection = RemoteData.NotAsked }, Cmd.none )
@@ -497,10 +706,20 @@ update msg model =
                     let
                         newTypes =
                             GraphQL.typesDict resp.data.schema.types Dict.empty
-                    in
-                    ( { model | alert = Nothing, schema = Just resp.data.schema, types = newTypes, selection = RemoteData.NotAsked }, Cmd.none )
 
-        OnHttpResponse (Err err) ->
+                        newSchemaLookup =
+                            Dict.update apiURL (\v -> Just resp.data.schema) model.schemaLookup
+                    in
+                    updateRoute model.route
+                        { model
+                            | alert = Nothing
+                            , schemaLookup = newSchemaLookup
+                            , schema = RemoteData.Success resp.data.schema
+                            , types = newTypes
+                            , selection = RemoteData.NotAsked
+                        }
+
+        OnIntrospectionResponse apiURL (Err err) ->
             ( { model | alert = Just { category = "danger", message = Debug.toString err }, selection = RemoteData.NotAsked }, Cmd.none )
 
         ChosenSchema heading field ->
@@ -534,9 +753,17 @@ update msg model =
             )
 
         ApiUrlUpdated ->
-            ( { model | alert = Nothing, selection = RemoteData.Loading }
-            , API.introspect model.apiURL
-                |> Task.attempt OnHttpResponse
+            let
+                shortName =
+                    Regex.fromString "\\W+"
+                        |> Maybe.map (\re -> Regex.replace re (always "") model.apiURL)
+                        |> Maybe.withDefault "custom"
+
+                newApiLookup =
+                    { name = shortName, headers = model.apiHeaders, href = model.apiURL } :: model.apiLookup
+            in
+            ( { model | alert = Nothing, selection = RemoteData.Loading, apiLookup = newApiLookup }
+            , Browser.Navigation.pushUrl model.navKey (Const.pathPrefix ++ "/" ++ shortName ++ "/")
             )
 
         FormSubmitted ->
