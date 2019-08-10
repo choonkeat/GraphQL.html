@@ -1,6 +1,7 @@
 module UI exposing
     ( Alert
     , alert
+    , breadcrumbs
     , codeBlock
     , description
     , inputCheckbox
@@ -10,7 +11,7 @@ module UI exposing
     , submitButton
     )
 
-import Html exposing (Html, a, button, code, div, em, form, h1, h3, h5, hr, img, input, label, li, main_, nav, node, option, p, pre, select, small, span, strong, table, tbody, td, text, textarea, th, thead, tr, ul)
+import Html exposing (Html, a, button, code, div, em, form, h1, h3, h5, hr, img, input, label, li, main_, nav, node, ol, option, p, pre, select, small, span, strong, table, tbody, td, text, textarea, th, thead, tr, ul)
 import Html.Attributes exposing (attribute, checked, class, disabled, for, href, id, name, placeholder, rel, required, src, style, target, title, type_, value)
 import Html.Events exposing (on, onBlur, onClick, onInput, onSubmit)
 import Json.Decode
@@ -96,3 +97,24 @@ codeBlock : { attrs : List (Html.Attribute a) } -> String -> Html a
 codeBlock config string =
     pre (List.append [ style "white-space" "pre-wrap", style "word-break" "break-all", style "background-color" "lightgray" ] config.attrs)
         [ text string ]
+
+
+breadcrumbs : List (Html a) -> List String -> String -> Html a
+breadcrumbs htmlList crumbs lastCrumb =
+    case crumbs of
+        [] ->
+            nav [ attribute "aria-label" "breadcrumb" ]
+                [ ol [ class "breadcrumb" ]
+                    (List.append
+                        (List.reverse htmlList)
+                        [ li [ class "breadcrumb-item" ] [ text lastCrumb ] ]
+                    )
+                ]
+
+        x :: xs ->
+            let
+                currentHtml =
+                    li [ class "breadcrumb-item" ]
+                        [ a [ href (String.join "/" (List.repeat (List.length crumbs) "..")) ] [ text x ] ]
+            in
+            breadcrumbs (currentHtml :: htmlList) xs lastCrumb

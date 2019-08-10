@@ -1,5 +1,5 @@
 elm-live: src/Templates.elm
-	elm-live src/Main.elm --after-build "./inject-init-flags-null.bash"
+	elm-live src/Main.elm --pushstate --after-build "./inject-init-flags-null.bash"
 
 src/Templates.elm: templates $(shell find templates -iname '*.json')
 	node filecontent-as-elm-methods.js templates > src/Templates.elm
