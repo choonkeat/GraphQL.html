@@ -155,7 +155,7 @@ routeBreadCrumb routeRoute =
         Route.NotFound ->
             UI.breadcrumbs [] [] "Not found"
 
-        Route.APIs ->
+        Route.Homepage _ ->
             UI.breadcrumbs [] [] "Home"
 
         Route.OperationTypes apiName ->
@@ -185,7 +185,7 @@ view model =
                     , a [ href "/" ] [ text "Go back" ]
                     ]
 
-            Route.APIs ->
+            Route.Homepage _ ->
                 main_ [ class "container" ]
                     [ viewAPIs model ]
 
@@ -631,8 +631,16 @@ updateRoute routeRoute model =
         Route.NotFound ->
             ( model, Cmd.none )
 
-        Route.APIs ->
-            ( { model | alert = Nothing, schema = RemoteData.NotAsked }, Cmd.none )
+        Route.Homepage query ->
+            case ( query.p, query.q ) of
+                ( Nothing, _ ) ->
+                    ( { model | alert = Nothing, schema = RemoteData.NotAsked }, Cmd.none )
+
+                ( Just oldpath, Nothing ) ->
+                    ( model, Browser.Navigation.replaceUrl model.navKey oldpath )
+
+                ( Just oldpath, Just oldquery ) ->
+                    ( model, Browser.Navigation.replaceUrl model.navKey (oldpath ++ "?" ++ oldquery) )
 
         Route.OperationTypes apiName ->
             modelWithSchema apiName
