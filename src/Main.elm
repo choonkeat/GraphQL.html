@@ -2,6 +2,7 @@ module Main exposing (Flags, Model, Msg(..), init, main, subscriptions, update, 
 
 import API
 import Array exposing (Array)
+import Base64
 import Browser
 import Browser.Events exposing (onClick)
 import Browser.Navigation
@@ -50,7 +51,7 @@ type alias Model =
     , selection : RemoteData.WebData Selection
     , dstyle : DictRenderStyle
     , graphqlResponseResult : RemoteData.WebData GraphQLResponse
-    , apiLookup : List { name : String, headers : String, href : String }
+    , headersLookup : Dict String String
     , apiURL : String
     , apiHeaders : String
     }
@@ -124,8 +125,8 @@ init flags url navKey =
     let
         flagApi =
             flags
-                |> Maybe.map (\f -> [ { name = "default", headers = f.apiHeaders, href = f.apiURL } ])
-                |> Maybe.withDefault []
+                |> Maybe.map (\f -> Dict.fromList [ ( f.apiURL, f.apiHeaders ) ])
+                |> Maybe.withDefault Dict.empty
 
         model =
             { navKey = navKey
@@ -141,7 +142,7 @@ init flags url navKey =
             , selection = RemoteData.NotAsked
             , dstyle = DictAsCard
             , graphqlResponseResult = RemoteData.NotAsked
-            , apiLookup = flagApi
+            , headersLookup = flagApi
             , apiURL = ""
             , apiHeaders = ""
             }
@@ -158,14 +159,14 @@ routeBreadCrumb routeRoute =
         Route.Homepage _ ->
             UI.breadcrumbs [] [] "Home"
 
-        Route.OperationTypes apiName ->
-            UI.breadcrumbs [] [ "Home" ] apiName
+        Route.OperationTypes apiURL ->
+            UI.breadcrumbs [] [ "Home" ] apiURL
 
-        Route.SelectionSets apiName operationType ->
-            UI.breadcrumbs [] [ "Home", apiName ] operationType
+        Route.SelectionSets apiURL operationType ->
+            UI.breadcrumbs [] [ "Home", apiURL ] operationType
 
-        Route.Request apiName operationType selectionSet ->
-            UI.breadcrumbs [] [ "Home", apiName, operationType ] selectionSet
+        Route.Request apiURL operationType selectionSet ->
+            UI.breadcrumbs [] [ "Home", apiURL, operationType ] selectionSet
 
 
 view : Model -> Browser.Document Msg
@@ -189,21 +190,21 @@ view model =
                 main_ [ class "container" ]
                     [ viewAPIs model ]
 
-            Route.OperationTypes apiName ->
+            Route.OperationTypes apiURL ->
                 main_ [ class "container" ]
                     [ div [ class "mt-3", title (Debug.toString model.route) ]
                         [ routeBreadCrumb model.route ]
-                    , renderRemote (renderGraphqlSchema apiName Nothing model.types) model.schema
+                    , renderRemote (renderGraphqlSchema apiURL Nothing model.types) model.schema
                     ]
 
-            Route.SelectionSets apiName operationType ->
+            Route.SelectionSets apiURL operationType ->
                 main_ [ class "container" ]
                     [ div [ class "mt-3", title (Debug.toString model.route) ]
                         [ routeBreadCrumb model.route ]
-                    , renderRemote (renderGraphqlSchema apiName (Just operationType) model.types) model.schema
+                    , renderRemote (renderGraphqlSchema apiURL (Just operationType) model.types) model.schema
                     ]
 
-            Route.Request apiName operationType selectionSet ->
+            Route.Request apiURL operationType selectionSet ->
                 main_ [ class "container" ]
                     [ div [ class "mt-3", title (Debug.toString model.route) ]
                         [ routeBreadCrumb model.route ]
@@ -226,29 +227,15 @@ view model =
 
 viewAPIs : Model -> Html Msg
 viewAPIs model =
-    let
-        apiItems =
-            model.apiLookup
-                |> List.map
-                    (\row ->
-                        a
-                            [ class "list-group-item list-group-item-action"
-                            , href ("/" ++ row.name ++ "/")
-                            ]
-                            [ text row.name ]
-                    )
-    in
     div []
         [ div [ class "jumbotron mt-3" ]
             [ h1 [] [ text "GraphQL", span [ class "text-muted" ] [ text ".html" ] ]
             , p [ class "lead" ] [ text "Given any GraphQL endpoint, render an HTML form" ]
             ]
         , div [ class "list-group" ]
-            (List.append []
-                [ div [ class "list-group-item list-group-item-action" ]
-                    [ endpointForm model ]
-                ]
-            )
+            [ div [ class "list-group-item list-group-item-action" ]
+                [ endpointForm model ]
+            ]
         ]
 
 
@@ -304,7 +291,7 @@ endpointForm model =
 
 
 renderGraphqlSchema : String -> Maybe String -> Dict String GraphQL.Type -> GraphQL.Schema -> Html Msg
-renderGraphqlSchema apiName maybeOperation types schemaGraphQL =
+renderGraphqlSchema apiURL maybeOperation types schemaGraphQL =
     let
         operationTypes =
             [ ( "query", Just schemaGraphQL.queryType )
@@ -322,7 +309,7 @@ renderGraphqlSchema apiName maybeOperation types schemaGraphQL =
                     div [ class "card mb-3" ]
                         [ h5 [ class "card-header", style "text-transform" "capitalize" ]
                             [ text heading ]
-                        , viewQueriesNav ("/" ++ apiName ++ "/" ++ heading) (GraphQL.fields types headingType)
+                        , viewQueriesNav ("/" ++ Base64.encode apiURL ++ "/" ++ heading) (GraphQL.fields types headingType)
                         ]
     in
     div [] (List.map renderCard operationTypes)
@@ -607,25 +594,20 @@ viewSchemaType pathPrefix field =
 updateRoute : Route.Route -> Model -> ( Model, Cmd Msg )
 updateRoute routeRoute model =
     let
-        modelWithSchema apiName =
-            let
-                maybeAPI =
-                    model.apiLookup
-                        |> List.map (\row -> ( row.name, row ))
-                        |> Dict.fromList
-                        |> Dict.get apiName
-            in
-            case ( maybeAPI, Maybe.andThen (\api -> Dict.get api.href model.schemaLookup) maybeAPI ) of
+        modelWithSchema apiURL =
+            case ( Dict.get apiURL model.headersLookup, Dict.get apiURL model.schemaLookup ) of
                 ( _, Just schema ) ->
                     ( { model | schema = RemoteData.Success schema }, Cmd.none )
 
-                ( Just api, Nothing ) ->
-                    ( { model | alert = Nothing, schema = RemoteData.Loading, apiURL = api.href, apiHeaders = api.headers }
-                    , Task.attempt (OnIntrospectionResponse api.href) (API.introspect (Debug.log "introspecting" api.href))
+                ( Just headers, Nothing ) ->
+                    ( { model | alert = Nothing, schema = RemoteData.Loading, apiURL = apiURL, apiHeaders = headers }
+                    , Task.attempt (OnIntrospectionResponse apiURL) (API.introspect (Debug.log "introspecting" apiURL))
                     )
 
                 _ ->
-                    ( { model | alert = Just { category = "danger", message = "Unknown API: " ++ apiName } }, Cmd.none )
+                    ( { model | alert = Nothing, schema = RemoteData.Loading, apiURL = apiURL, apiHeaders = "" }
+                    , Task.attempt (OnIntrospectionResponse apiURL) (API.introspect (Debug.log "introspecting" apiURL))
+                    )
     in
     case routeRoute of
         Route.NotFound ->
@@ -642,20 +624,20 @@ updateRoute routeRoute model =
                 ( Just oldpath, Just oldquery ) ->
                     ( model, Browser.Navigation.replaceUrl model.navKey (oldpath ++ "?" ++ oldquery) )
 
-        Route.OperationTypes apiName ->
-            modelWithSchema apiName
+        Route.OperationTypes apiURL ->
+            modelWithSchema apiURL
 
-        Route.SelectionSets apiName operationType ->
+        Route.SelectionSets apiURL operationType ->
             let
                 ( newModel, newCmd ) =
-                    modelWithSchema apiName
+                    modelWithSchema apiURL
             in
             ( newModel, newCmd )
 
-        Route.Request apiName operationType selectionSet ->
+        Route.Request apiURL operationType selectionSet ->
             let
                 ( newModel, newCmd ) =
-                    modelWithSchema apiName
+                    modelWithSchema apiURL
             in
             case newModel.schema of
                 RemoteData.NotAsked ->
@@ -798,14 +780,12 @@ update msg model =
         ApiUrlUpdated ->
             let
                 shortName =
-                    Regex.fromString "\\W+"
-                        |> Maybe.map (\re -> Regex.replace re (always "") model.apiURL)
-                        |> Maybe.withDefault "custom"
+                    Base64.encode model.apiURL
 
-                newApiLookup =
-                    { name = shortName, headers = model.apiHeaders, href = model.apiURL } :: model.apiLookup
+                newHeadersLookup =
+                    Dict.insert model.apiURL model.apiHeaders model.headersLookup
             in
-            ( { model | alert = Nothing, selection = RemoteData.Loading, apiLookup = newApiLookup }
+            ( { model | alert = Nothing, selection = RemoteData.Loading, headersLookup = newHeadersLookup }
             , Browser.Navigation.pushUrl model.navKey ("/" ++ shortName ++ "/")
             )
 
