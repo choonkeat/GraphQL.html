@@ -53,7 +53,7 @@ type alias Model =
     , graphqlResponseResult : RemoteData.WebData GraphQLResponse
     , headersLookup : Dict String String
     , apiURL : String
-    , apiHeaders : String
+    , apiHeaders : Maybe String
     }
 
 
@@ -144,7 +144,7 @@ init flags url navKey =
             , graphqlResponseResult = RemoteData.NotAsked
             , headersLookup = flagApi
             , apiURL = ""
-            , apiHeaders = ""
+            , apiHeaders = Nothing
             }
     in
     updateRoute model.route model
@@ -177,36 +177,58 @@ view model =
             , href "https://stackpath.bootstrapcdn.com/bootstrap/4.3.1/css/bootstrap.min.css"
             ]
             []
+        , node "meta" [ name "viewport", attribute "content" "width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" ] []
         , UI.alert model.alert
         , case model.route of
             Route.NotFound ->
                 main_ [ class "container" ]
-                    [ div [ class "mt-3", title (Debug.toString model.route) ]
+                    [ div [ class "jumbotron mt-3" ]
+                        [ h1 [] [ a [ href "/" ] [ text "GraphQL", span [ class "text-muted" ] [ text ".html" ] ] ]
+                        , p [ class "lead" ] [ text "Given any GraphQL endpoint, render an HTML form" ]
+                        ]
+                    , div [ class "mt-3", title (Debug.toString model.route) ]
                         [ routeBreadCrumb model.route ]
                     , a [ href "/" ] [ text "Go back" ]
                     ]
 
             Route.Homepage _ ->
                 main_ [ class "container" ]
-                    [ viewAPIs model ]
+                    [ div [ class "jumbotron mt-3" ]
+                        [ h1 [] [ a [ href "/" ] [ text "GraphQL", span [ class "text-muted" ] [ text ".html" ] ] ]
+                        , p [ class "lead" ] [ text "Given any GraphQL endpoint, render an HTML form" ]
+                        ]
+                    , endpointForm model
+                    ]
 
             Route.OperationTypes apiURL ->
                 main_ [ class "container" ]
-                    [ div [ class "mt-3", title (Debug.toString model.route) ]
+                    [ div [ class "jumbotron mt-3" ]
+                        [ h1 [] [ a [ href "/" ] [ text "GraphQL", span [ class "text-muted" ] [ text ".html" ] ] ]
+                        , p [ class "lead" ] [ text "Given any GraphQL endpoint, render an HTML form" ]
+                        ]
+                    , div [ class "mt-3", title (Debug.toString model.route) ]
                         [ routeBreadCrumb model.route ]
                     , renderRemote "Introspecting endpoint..." (renderGraphqlSchema apiURL Nothing model.types) model.schema
                     ]
 
             Route.SelectionSets apiURL operationType ->
                 main_ [ class "container" ]
-                    [ div [ class "mt-3", title (Debug.toString model.route) ]
+                    [ div [ class "jumbotron mt-3" ]
+                        [ h1 [] [ a [ href "/" ] [ text "GraphQL", span [ class "text-muted" ] [ text ".html" ] ] ]
+                        , p [ class "lead" ] [ text "Given any GraphQL endpoint, render an HTML form" ]
+                        ]
+                    , div [ class "mt-3", title (Debug.toString model.route) ]
                         [ routeBreadCrumb model.route ]
                     , renderRemote "Introspecting endpoint..." (renderGraphqlSchema apiURL (Just operationType) model.types) model.schema
                     ]
 
             Route.Request apiURL operationType selectionSet ->
                 main_ [ class "container" ]
-                    [ div [ class "mt-3", title (Debug.toString model.route) ]
+                    [ div [ class "jumbotron mt-3" ]
+                        [ h1 [] [ a [ href "/" ] [ text "GraphQL", span [ class "text-muted" ] [ text ".html" ] ] ]
+                        , p [ class "lead" ] [ text "Given any GraphQL endpoint, render an HTML form" ]
+                        ]
+                    , div [ class "mt-3", title (Debug.toString model.route) ]
                         [ routeBreadCrumb model.route ]
                     , renderRemote "Introspecting endpoint..."
                         (always
@@ -221,20 +243,6 @@ view model =
         , footer [ class "container mt-3 mb-3 text-right" ]
             [ a [ href "https://github.com/choonkeat/GraphQL.html", target "_blank" ]
                 [ small [] [ text "github.com/choonkeat/GraphQL.html" ] ]
-            ]
-        ]
-
-
-viewAPIs : Model -> Html Msg
-viewAPIs model =
-    div []
-        [ div [ class "jumbotron mt-3" ]
-            [ h1 [] [ text "GraphQL", span [ class "text-muted" ] [ text ".html" ] ]
-            , p [ class "lead" ] [ text "Given any GraphQL endpoint, render an HTML form" ]
-            ]
-        , div [ class "list-group" ]
-            [ div [ class "list-group-item list-group-item-action" ]
-                [ endpointForm model ]
             ]
         ]
 
@@ -271,16 +279,26 @@ endpointForm model =
                 [ onInput (ModelChanged (\m s -> { m | apiURL = s }))
                 ]
             }
-        , UI.inputText
-            { label = [ text "HTTP Request Headers" ]
-            , value = model.apiHeaders
-            , description = UI.description (Just "e.g. Authorization: Bearer abc1234")
-            , attrs =
-                [ onInput (ModelChanged (\m s -> { m | apiHeaders = s }))
-                , placeholder "optional"
-                , style "height" "3em"
-                ]
-            }
+        , case model.apiHeaders of
+            Just apiHeaders ->
+                UI.inputText
+                    { label = [ text "HTTP Request Headers" ]
+                    , value = apiHeaders
+                    , description = UI.description (Just "e.g. Authorization: Bearer abc1234")
+                    , attrs =
+                        [ onInput (ModelChanged (\m s -> { m | apiHeaders = Just s }))
+                        , placeholder "optional"
+                        , style "height" "3em"
+                        ]
+                    }
+
+            Nothing ->
+                UI.inputCheckbox
+                    { label = [ text "customize HTTP Request Headers" ]
+                    , description = UI.description (Just "e.g. Authorization: Bearer abc1234")
+                    , attrs = [ onInput (ModelChanged (\m s -> { m | apiHeaders = Just "" })) ]
+                    }
+        , hr [] []
         , UI.submitButton { loading = False }
         ]
 
@@ -341,7 +359,7 @@ renderSelectionForm typeLookup model selection =
 renderSelectionNestForm : (String -> Maybe GraphQL.Type) -> Model -> SelectionNestAttrs -> Html Msg
 renderSelectionNestForm typeLookup model record =
     div [ class (boolMap model.displayQuery "row" "") ]
-        [ form [ onSubmit FormSubmitted, class (boolMap model.displayQuery "col-6 mb-3" "mb-3") ]
+        [ form [ onSubmit FormSubmitted, class (boolMap model.displayQuery "col-md-6 mb-3" "mb-3") ]
             [ renderForm typeLookup [] record.field.name record
             , div [ class "mb-3" ]
                 [ UI.inputCheckbox
@@ -384,7 +402,7 @@ renderSelectionNestForm typeLookup model record =
                     UI.submitButton { loading = False }
             ]
         , maybeRender
-            (UI.codeBlock { attrs = [ class "p-3 col-6" ] })
+            (UI.codeBlock { attrs = [ class "p-3 col-md-6" ] })
             (boolMap model.displayQuery (Just (formQuery record.field.name record)) Nothing)
         ]
 
@@ -595,12 +613,12 @@ updateRoute routeRoute model =
                     ( { model | schema = RemoteData.Success schema }, Cmd.none )
 
                 ( Just headers, Nothing ) ->
-                    ( { model | alert = Nothing, schema = RemoteData.Loading, apiURL = apiURL, apiHeaders = headers }
+                    ( { model | alert = Nothing, schema = RemoteData.Loading, apiURL = apiURL, apiHeaders = Just headers }
                     , Task.attempt (OnIntrospectionResponse apiURL) (API.introspect (Debug.log "introspecting" apiURL))
                     )
 
                 _ ->
-                    ( { model | alert = Nothing, schema = RemoteData.Loading, apiURL = apiURL, apiHeaders = "" }
+                    ( { model | alert = Nothing, schema = RemoteData.Loading, apiURL = apiURL, apiHeaders = Nothing }
                     , Task.attempt (OnIntrospectionResponse apiURL) (API.introspect (Debug.log "introspecting" apiURL))
                     )
     in
@@ -778,7 +796,7 @@ update msg model =
                     Base64.encode model.apiURL
 
                 newHeadersLookup =
-                    Dict.insert model.apiURL model.apiHeaders model.headersLookup
+                    Dict.insert model.apiURL (Maybe.withDefault "" model.apiHeaders) model.headersLookup
             in
             ( { model | alert = Nothing, selection = RemoteData.Loading, headersLookup = newHeadersLookup }
             , Browser.Navigation.pushUrl model.navKey ("/" ++ shortName ++ "/")
@@ -788,7 +806,7 @@ update msg model =
             case model.selection of
                 RemoteData.Success selection ->
                     ( { model | graphqlResponseResult = RemoteData.Loading, alert = Nothing }
-                    , httpRequest model.apiURL (textareaToHttpHeaders model.apiHeaders) model.selectionKey selection
+                    , httpRequest model.apiURL (textareaToHttpHeaders (Maybe.withDefault "" model.apiHeaders)) model.selectionKey selection
                         |> Task.attempt OnFormResponse
                     )
 

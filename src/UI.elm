@@ -107,7 +107,7 @@ breadcrumbs htmlList crumbs lastCrumb =
                 [ ol [ class "breadcrumb" ]
                     (List.append
                         (List.reverse htmlList)
-                        [ li [ class "breadcrumb-item" ] [ text lastCrumb ] ]
+                        [ li [ class "breadcrumb-item", style "word-break" "break-all" ] [ text lastCrumb ] ]
                     )
                 ]
 
