@@ -551,7 +551,7 @@ renderRemote loadingMessage render webData =
 
         RemoteData.Loading ->
             div [ style "min-height" "500px" ]
-                [ UI.alert (Just { category = "warning", message = loadingMessage }) ]
+                [ UI.progress { category = "primary", message = loadingMessage } 100.0 ]
 
         RemoteData.Failure err ->
             div [ style "min-height" "500px" ]

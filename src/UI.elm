@@ -8,6 +8,7 @@ module UI exposing
     , inputChoices
     , inputString
     , inputText
+    , progress
     , submitButton
     )
 
@@ -32,6 +33,17 @@ alert alertMaybe =
 
         Nothing ->
             text ""
+
+
+progress : Alert -> Float -> Html a
+progress a percent =
+    div [ class "progressx" ]
+        [ div
+            [ class ("progress-bar progress-bar-striped progress-bar-animated bg-" ++ a.category)
+            , style "width" (String.fromFloat percent ++ "%")
+            ]
+            [ text a.message ]
+        ]
 
 
 description : Maybe String -> Html a
