@@ -194,25 +194,25 @@ view model =
                 main_ [ class "container" ]
                     [ div [ class "mt-3", title (Debug.toString model.route) ]
                         [ routeBreadCrumb model.route ]
-                    , renderRemote (renderGraphqlSchema apiURL Nothing model.types) model.schema
+                    , renderRemote "Introspecting endpoint..." (renderGraphqlSchema apiURL Nothing model.types) model.schema
                     ]
 
             Route.SelectionSets apiURL operationType ->
                 main_ [ class "container" ]
                     [ div [ class "mt-3", title (Debug.toString model.route) ]
                         [ routeBreadCrumb model.route ]
-                    , renderRemote (renderGraphqlSchema apiURL (Just operationType) model.types) model.schema
+                    , renderRemote "Introspecting endpoint..." (renderGraphqlSchema apiURL (Just operationType) model.types) model.schema
                     ]
 
             Route.Request apiURL operationType selectionSet ->
                 main_ [ class "container" ]
                     [ div [ class "mt-3", title (Debug.toString model.route) ]
                         [ routeBreadCrumb model.route ]
-                    , renderRemote
+                    , renderRemote "Introspecting endpoint..."
                         (always
                             (div []
-                                [ renderRemote (renderSelectionForm (\s -> Dict.get s model.types) model) model.selection
-                                , renderRemote (renderGraphqlResponse model.dstyle) model.graphqlResponseResult
+                                [ renderRemote "Introspecting endpoint..." (renderSelectionForm (\s -> Dict.get s model.types) model) model.selection
+                                , renderRemote "Waiting for reply..." (renderGraphqlResponse model.dstyle) model.graphqlResponseResult
                                 ]
                             )
                         )
@@ -242,13 +242,8 @@ viewAPIs model =
 endpointForm : Model -> Html Msg
 endpointForm model =
     let
-        clickSet string =
-            span
-                [ title ("click to set url as " ++ string)
-                , onClick (ModelChanged (\m s -> { model | apiURL = s }) string)
-                , style "cursor" "pointer"
-                ]
-                [ text string ]
+        exemplify string =
+            a [ href ("/" ++ Base64.encode string ++ "/") ] [ text string ]
     in
     form [ onSubmit ApiUrlUpdated ]
         [ UI.inputString
@@ -257,20 +252,20 @@ endpointForm model =
             , value = model.apiURL
             , description =
                 small [ class "text-muted" ]
-                    (List.append
-                        [ text "See "
-                        , a [ href "http://apis.guru/graphql-apis/", target "_blank" ] [ text "http://apis.guru/graphql-apis/" ]
-                        , text " for more APIs. e.g. "
-                        ]
-                        (List.intersperse
-                            (text ", ")
-                            (List.map clickSet
+                    (List.concat
+                        [ [ text "e.g. " ]
+                        , List.intersperse (text ", ")
+                            (List.map exemplify
                                 [ "https://metaphysics-production.artsy.net/"
                                 , "https://graphql.anilist.co/"
                                 , "https://graphql-pokemon.now.sh/?"
                                 ]
                             )
-                        )
+                        , [ text "; see "
+                          , a [ href "http://apis.guru/graphql-apis/", target "_blank" ] [ text "http://apis.guru/graphql-apis/" ]
+                          , text " for more APIs."
+                          ]
+                        ]
                     )
             , attrs =
                 [ onInput (ModelChanged (\m s -> { m | apiURL = s }))
@@ -530,15 +525,15 @@ renderDictValue dstyle dv =
                 )
 
 
-renderRemote : (a -> Html Msg) -> RemoteData.WebData a -> Html Msg
-renderRemote render webData =
+renderRemote : String -> (a -> Html Msg) -> RemoteData.WebData a -> Html Msg
+renderRemote loadingMessage render webData =
     case webData of
         RemoteData.NotAsked ->
             div [ style "min-height" "500px" ] [ text "" ]
 
         RemoteData.Loading ->
             div [ style "min-height" "500px" ]
-                [ UI.alert (Just { category = "warning", message = "Loading..." }) ]
+                [ UI.alert (Just { category = "warning", message = loadingMessage }) ]
 
         RemoteData.Failure err ->
             div [ style "min-height" "500px" ]
