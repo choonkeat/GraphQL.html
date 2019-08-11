@@ -5,11 +5,10 @@ import Array exposing (Array)
 import Browser
 import Browser.Events exposing (onClick)
 import Browser.Navigation
-import Const
 import Dev
 import Dict exposing (Dict)
 import GraphQL exposing (typeName)
-import Html exposing (Html, a, button, code, div, em, form, h1, h2, h3, h5, hr, img, input, label, li, main_, nav, node, option, p, pre, select, small, span, strong, table, tbody, td, text, textarea, th, thead, tr, ul)
+import Html exposing (Html, a, button, code, div, em, footer, form, h1, h2, h3, h5, hr, img, input, label, li, main_, nav, node, option, p, pre, select, small, span, strong, table, tbody, td, text, textarea, th, thead, tr, ul)
 import Html.Attributes exposing (attribute, checked, class, disabled, for, href, id, name, placeholder, rel, required, src, style, target, title, type_, value)
 import Html.Events exposing (on, onBlur, onClick, onInput, onSubmit)
 import Http
@@ -182,26 +181,38 @@ view model =
             , href "https://stackpath.bootstrapcdn.com/bootstrap/4.3.1/css/bootstrap.min.css"
             ]
             []
-        , main_ [ class "container" ]
-            [ div [ class "mt-3", title (Debug.toString model.route) ]
-                [ routeBreadCrumb model.route ]
-            , UI.alert model.alert
-            , case model.route of
-                Route.NotFound ->
-                    a [ href (Const.pathPrefix ++ "/") ] [ text "Go back" ]
+        , UI.alert model.alert
+        , case model.route of
+            Route.NotFound ->
+                main_ [ class "container" ]
+                    [ div [ class "mt-3", title (Debug.toString model.route) ]
+                        [ routeBreadCrumb model.route ]
+                    , a [ href "/" ] [ text "Go back" ]
+                    ]
 
-                Route.APIs ->
-                    viewAPIs model
+            Route.APIs ->
+                main_ [ class "container" ]
+                    [ viewAPIs model ]
 
-                Route.OperationTypes apiName ->
-                    renderRemote (renderGraphqlSchema apiName Nothing model.types) model.schema
+            Route.OperationTypes apiName ->
+                main_ [ class "container" ]
+                    [ div [ class "mt-3", title (Debug.toString model.route) ]
+                        [ routeBreadCrumb model.route ]
+                    , renderRemote (renderGraphqlSchema apiName Nothing model.types) model.schema
+                    ]
 
-                Route.SelectionSets apiName operationType ->
-                    -- TODO: operationType?
-                    renderRemote (renderGraphqlSchema apiName (Just operationType) model.types) model.schema
+            Route.SelectionSets apiName operationType ->
+                main_ [ class "container" ]
+                    [ div [ class "mt-3", title (Debug.toString model.route) ]
+                        [ routeBreadCrumb model.route ]
+                    , renderRemote (renderGraphqlSchema apiName (Just operationType) model.types) model.schema
+                    ]
 
-                Route.Request apiName operationType selectionSet ->
-                    renderRemote
+            Route.Request apiName operationType selectionSet ->
+                main_ [ class "container" ]
+                    [ div [ class "mt-3", title (Debug.toString model.route) ]
+                        [ routeBreadCrumb model.route ]
+                    , renderRemote
                         (always
                             (div []
                                 [ renderRemote (renderSelectionForm (\s -> Dict.get s model.types) model) model.selection
@@ -210,6 +221,10 @@ view model =
                             )
                         )
                         model.schema
+                    ]
+        , footer [ class "container mt-3 mb-3 text-right" ]
+            [ a [ href "https://github.com/choonkeat/GraphQL.html", target "_blank" ]
+                [ small [] [ text "github.com/choonkeat/GraphQL.html" ] ]
             ]
         ]
 
@@ -223,17 +238,24 @@ viewAPIs model =
                     (\row ->
                         a
                             [ class "list-group-item list-group-item-action"
-                            , href (Const.pathPrefix ++ "/" ++ row.name ++ "/")
+                            , href ("/" ++ row.name ++ "/")
                             ]
                             [ text row.name ]
                     )
     in
-    div [ class "list-group" ]
-        (List.append apiItems
-            [ div [ class "list-group-item list-group-item-action" ]
-                [ endpointForm model ]
+    div []
+        [ div [ class "jumbotron mt-3" ]
+            [ h1 [] [ text "GraphQL", span [ class "text-muted" ] [ text ".html" ] ]
+            , p [ class "lead" ] [ text "Given any GraphQL endpoint, render an HTML form" ]
             ]
-        )
+        , UI.alert (Just { category = "info", message = "Choose from any GraphQL APIs below, or provide your own" })
+        , div [ class "list-group" ]
+            (List.append apiItems
+                [ div [ class "list-group-item list-group-item-action" ]
+                    [ endpointForm model ]
+                ]
+            )
+        ]
 
 
 endpointForm : Model -> Html Msg
@@ -289,7 +311,7 @@ renderGraphqlSchema apiName maybeOperation types schemaGraphQL =
                     div [ class "card mb-3" ]
                         [ h5 [ class "card-header", style "text-transform" "capitalize" ]
                             [ text heading ]
-                        , viewQueriesNav (Const.pathPrefix ++ "/" ++ apiName ++ "/" ++ heading) (GraphQL.fields types headingType)
+                        , viewQueriesNav ("/" ++ apiName ++ "/" ++ heading) (GraphQL.fields types headingType)
                         ]
     in
     div [] (List.map renderCard operationTypes)
@@ -330,7 +352,7 @@ renderSelectionNestForm typeLookup model record =
             [ renderForm typeLookup [] record.field.name record
             , div [ class "mb-3" ]
                 [ UI.inputCheckbox
-                    { label = [ text "Debug: show raw query" ]
+                    { label = [ text "Show GraphQL query" ]
                     , description = text ""
                     , attrs =
                         [ checked model.displayQuery
@@ -514,13 +536,15 @@ renderRemote : (a -> Html Msg) -> RemoteData.WebData a -> Html Msg
 renderRemote render webData =
     case webData of
         RemoteData.NotAsked ->
-            text ""
+            div [ style "min-height" "500px" ] [ text "" ]
 
         RemoteData.Loading ->
-            UI.alert (Just { category = "warning", message = "Loading..." })
+            div [ style "min-height" "500px" ]
+                [ UI.alert (Just { category = "warning", message = "Loading..." }) ]
 
         RemoteData.Failure err ->
-            UI.alert (Just { category = "danger", message = Debug.toString err })
+            div [ style "min-height" "500px" ]
+                [ UI.alert (Just { category = "danger", message = Debug.toString err }) ]
 
         RemoteData.Success data ->
             render data
@@ -763,7 +787,7 @@ update msg model =
                     { name = shortName, headers = model.apiHeaders, href = model.apiURL } :: model.apiLookup
             in
             ( { model | alert = Nothing, selection = RemoteData.Loading, apiLookup = newApiLookup }
-            , Browser.Navigation.pushUrl model.navKey (Const.pathPrefix ++ "/" ++ shortName ++ "/")
+            , Browser.Navigation.pushUrl model.navKey ("/" ++ shortName ++ "/")
             )
 
         FormSubmitted ->

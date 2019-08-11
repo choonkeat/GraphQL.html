@@ -1,6 +1,5 @@
 module Route exposing (Route(..), fromUrl, route)
 
-import Const
 import Url
 import Url.Parser exposing ((</>), Parser, fragment, int, map, oneOf, parse, s, string, top)
 
@@ -15,20 +14,11 @@ type Route
 
 route : Parser (Route -> a) a
 route =
-    let
-        pathPrefix =
-            if String.startsWith "/" Const.pathPrefix then
-                String.dropLeft 1 Const.pathPrefix
-
-            else
-                Const.pathPrefix
-    in
     oneOf
         [ map APIs top
-        , map APIs (s pathPrefix)
-        , map OperationTypes (s pathPrefix </> string)
-        , map SelectionSets (s pathPrefix </> string </> string)
-        , map Request (s pathPrefix </> string </> string </> string)
+        , map OperationTypes string
+        , map SelectionSets (string </> string)
+        , map Request (string </> string </> string)
         ]
 
 
