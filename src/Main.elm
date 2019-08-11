@@ -8,7 +8,7 @@ import Browser.Navigation
 import Dev
 import Dict exposing (Dict)
 import GraphQL exposing (typeName)
-import Html exposing (Html, a, button, code, div, em, footer, form, h1, h2, h3, h5, hr, img, input, label, li, main_, nav, node, option, p, pre, select, small, span, strong, table, tbody, td, text, textarea, th, thead, tr, ul)
+import Html exposing (Html, a, br, button, code, div, em, footer, form, h1, h2, h3, h5, hr, img, input, label, li, main_, nav, node, option, p, pre, select, small, span, strong, table, tbody, td, text, textarea, th, thead, tr, ul)
 import Html.Attributes exposing (attribute, checked, class, disabled, for, href, id, name, placeholder, rel, required, src, style, target, title, type_, value)
 import Html.Events exposing (on, onBlur, onClick, onInput, onSubmit)
 import Http
@@ -141,12 +141,7 @@ init flags url navKey =
             , selection = RemoteData.NotAsked
             , dstyle = DictAsCard
             , graphqlResponseResult = RemoteData.NotAsked
-            , apiLookup =
-                List.append flagApi
-                    [ { name = "Artsy", headers = "", href = "https://metaphysics-production.artsy.net/" }
-                    , { name = "AniList", headers = "", href = "https://graphql.anilist.co/" }
-                    , { name = "Pokemon", headers = "", href = "https://graphql-pokemon.now.sh/?" }
-                    ]
+            , apiLookup = flagApi
             , apiURL = ""
             , apiHeaders = ""
             }
@@ -248,9 +243,8 @@ viewAPIs model =
             [ h1 [] [ text "GraphQL", span [ class "text-muted" ] [ text ".html" ] ]
             , p [ class "lead" ] [ text "Given any GraphQL endpoint, render an HTML form" ]
             ]
-        , UI.alert (Just { category = "info", message = "Choose from any GraphQL APIs below, or provide your own" })
         , div [ class "list-group" ]
-            (List.append apiItems
+            (List.append []
                 [ div [ class "list-group-item list-group-item-action" ]
                     [ endpointForm model ]
                 ]
@@ -260,17 +254,37 @@ viewAPIs model =
 
 endpointForm : Model -> Html Msg
 endpointForm model =
+    let
+        clickSet string =
+            span
+                [ title ("click to set url as " ++ string)
+                , onClick (ModelChanged (\m s -> { model | apiURL = s }) string)
+                , style "cursor" "pointer"
+                ]
+                [ text string ]
+    in
     form [ onSubmit ApiUrlUpdated ]
         [ UI.inputString
             { label = [ text "GraphQL Endpoint" ]
             , htmlType = "text"
             , value = model.apiURL
             , description =
-                div []
-                    [ text "See "
-                    , a [ href "http://apis.guru/graphql-apis/", target "_blank" ] [ text "http://apis.guru/graphql-apis/" ]
-                    , text " for more APIs"
-                    ]
+                small [ class "text-muted" ]
+                    (List.append
+                        [ text "See "
+                        , a [ href "http://apis.guru/graphql-apis/", target "_blank" ] [ text "http://apis.guru/graphql-apis/" ]
+                        , text " for more APIs. e.g. "
+                        ]
+                        (List.intersperse
+                            (text ", ")
+                            (List.map clickSet
+                                [ "https://metaphysics-production.artsy.net/"
+                                , "https://graphql.anilist.co/"
+                                , "https://graphql-pokemon.now.sh/?"
+                                ]
+                            )
+                        )
+                    )
             , attrs =
                 [ onInput (ModelChanged (\m s -> { m | apiURL = s }))
                 ]
@@ -278,14 +292,11 @@ endpointForm model =
         , UI.inputText
             { label = [ text "HTTP Request Headers" ]
             , value = model.apiHeaders
-            , description =
-                div []
-                    [ text "e.g. "
-                    , code [] [ text "Authorization: Bearer abc1234" ]
-                    ]
+            , description = UI.description (Just "e.g. Authorization: Bearer abc1234")
             , attrs =
                 [ onInput (ModelChanged (\m s -> { m | apiHeaders = s }))
                 , placeholder "optional"
+                , style "height" "3em"
                 ]
             }
         , UI.submitButton { loading = False }
