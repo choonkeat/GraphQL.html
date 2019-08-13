@@ -914,14 +914,24 @@ formQuery key form =
 
                 _ ->
                     key ++ "(" ++ String.join " " queries ++ ")"
+
+        subselect =
+            selectionDictQuery form.selectionDict
     in
-    selectionInput ++ "{" ++ selectionDictQuery form.selectionDict ++ "}"
+    if subselect == "" then
+        -- this `form` is effectively NOT selected since
+        -- no sub selections are made; otherwise invalid graphql
+        ""
+
+    else
+        selectionInput ++ "{" ++ subselect ++ "}"
 
 
 selectionDictQuery : SelectionDict -> String
 selectionDictQuery dict =
     Dict.map selectionQuery dict
         |> Dict.values
+        |> List.map nothingIfBlank
         |> listWithoutNothing
         |> String.join " "
 
