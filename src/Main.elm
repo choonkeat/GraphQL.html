@@ -299,15 +299,15 @@ endpointForm model =
                         { label = [ text "CORS Proxy" ]
                         , htmlType = "text"
                         , value = model.corsEscapePrefix
-                        , description = UI.description (Just "prefixes the GraphQL Endpoint to workaround any CORS issue")
+                        , description = UI.description (Just "use a reverse proxy to workaround CORS restriction")
                         , attrs = [ onInput (ModelChanged (\m s -> { m | corsEscapePrefix = s })) ]
                         }
                     ]
 
             Nothing ->
                 UI.inputCheckbox
-                    { label = [ text "customize HTTP Request Headers" ]
-                    , description = UI.description (Just "e.g. Authorization: Bearer abc1234")
+                    { label = [ text "advanced settings" ]
+                    , description = UI.description (Just "e.g. set headers, workaround CORS...")
                     , attrs = [ onInput (ModelChanged (\m s -> { m | apiHeaders = Just "" })) ]
                     }
         , hr [] []

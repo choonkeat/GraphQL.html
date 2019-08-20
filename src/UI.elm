@@ -72,8 +72,9 @@ inputText config =
 inputCheckbox : { label : List (Html a), description : Html a, attrs : List (Html.Attribute a) } -> Html a
 inputCheckbox config =
     div [ class "form-check" ]
-        [ label [ class "form-check-label" ]
+        [ label [ class "form-check-label mr-2" ]
             (List.append [ input (List.append [ class "form-check-input", type_ "checkbox" ] config.attrs) [] ] config.label)
+        , config.description
         ]
 
 
