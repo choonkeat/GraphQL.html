@@ -757,6 +757,17 @@ update msg model =
                             , selection = RemoteData.NotAsked
                         }
 
+        OnIntrospectionResponse apiURL (Err Http.NetworkError) ->
+            let
+                newApiURL =
+                    corsAnywhere ++ apiURL
+            in
+            if String.startsWith corsAnywhere apiURL then
+                ( { model | alert = Just { category = "danger", message = "NetworkError" }, selection = RemoteData.NotAsked }, Cmd.none )
+
+            else
+                update ApiUrlUpdated { model | apiURL = newApiURL }
+
         OnIntrospectionResponse apiURL (Err err) ->
             ( { model | alert = Just { category = "danger", message = Debug.toString err }, selection = RemoteData.NotAsked }, Cmd.none )
 
@@ -1673,3 +1684,7 @@ isComplicated type_ =
 
         GraphQL.TypeList attrs ->
             isComplicated attrs.ofType
+
+
+corsAnywhere =
+    "https://cors-anywhere.herokuapp.com/"
