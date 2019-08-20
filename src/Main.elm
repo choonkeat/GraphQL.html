@@ -54,6 +54,7 @@ type alias Model =
     , headersLookup : Dict String String
     , apiURL : String
     , apiHeaders : Maybe String
+    , corsEscapePrefix : String
     }
 
 
@@ -82,6 +83,7 @@ type alias Flags =
     Maybe
         { apiURL : String
         , apiHeaders : String
+        , corsEscapePrefix : String
         }
 
 
@@ -145,6 +147,7 @@ init flags url navKey =
             , headersLookup = flagApi
             , apiURL = ""
             , apiHeaders = Nothing
+            , corsEscapePrefix = Maybe.withDefault "https://cors-anywhere.herokuapp.com/" (Maybe.map .corsEscapePrefix flags)
             }
     in
     updateRoute model.route model
@@ -281,16 +284,25 @@ endpointForm model =
             }
         , case model.apiHeaders of
             Just apiHeaders ->
-                UI.inputText
-                    { label = [ text "HTTP Request Headers" ]
-                    , value = apiHeaders
-                    , description = UI.description (Just "e.g. Authorization: Bearer abc1234")
-                    , attrs =
-                        [ onInput (ModelChanged (\m s -> { m | apiHeaders = Just s }))
-                        , placeholder "optional"
-                        , style "height" "3em"
-                        ]
-                    }
+                div []
+                    [ UI.inputText
+                        { label = [ text "HTTP Request Headers" ]
+                        , value = apiHeaders
+                        , description = UI.description (Just "e.g. Authorization: Bearer abc1234")
+                        , attrs =
+                            [ onInput (ModelChanged (\m s -> { m | apiHeaders = Just s }))
+                            , placeholder "optional"
+                            , style "height" "3em"
+                            ]
+                        }
+                    , UI.inputString
+                        { label = [ text "CORS Proxy" ]
+                        , htmlType = "text"
+                        , value = model.corsEscapePrefix
+                        , description = UI.description (Just "prefixes the GraphQL Endpoint to workaround any CORS issue")
+                        , attrs = [ onInput (ModelChanged (\m s -> { m | corsEscapePrefix = s })) ]
+                        }
+                    ]
 
             Nothing ->
                 UI.inputCheckbox
@@ -760,9 +772,9 @@ update msg model =
         OnIntrospectionResponse apiURL (Err Http.NetworkError) ->
             let
                 newApiURL =
-                    corsAnywhere ++ apiURL
+                    model.corsEscapePrefix ++ apiURL
             in
-            if String.startsWith corsAnywhere apiURL then
+            if String.startsWith model.corsEscapePrefix apiURL then
                 ( { model | alert = Just { category = "danger", message = "NetworkError" }, selection = RemoteData.NotAsked }, Cmd.none )
 
             else
@@ -1684,7 +1696,3 @@ isComplicated type_ =
 
         GraphQL.TypeList attrs ->
             isComplicated attrs.ofType
-
-
-corsAnywhere =
-    "https://cors-anywhere.herokuapp.com/"
