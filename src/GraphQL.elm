@@ -5,12 +5,15 @@ module GraphQL exposing
     , Schema
     , Type(..)
     , decodeIntrospectResponse
+    , expandedType
     , fieldType
     , fields
     , introspectionQuery
+    , isComplicated
     , ofType
     , typeName
     , typesDict
+    , unboxedType
     )
 
 import Dict exposing (Dict)
@@ -129,6 +132,87 @@ fields typeStringDict type_ =
         |> Maybe.andThen (\s -> Dict.get s typeStringDict)
         |> Maybe.map typeFields
         |> Maybe.withDefault []
+
+
+{-| expand a given type through `typeLookup`
+-}
+expandedType : (String -> Maybe Type) -> Type -> Type
+expandedType typeLookup type_ =
+    typeName type_
+        |> Maybe.andThen typeLookup
+        |> Maybe.map
+            (\t ->
+                case type_ of
+                    TypeNotNull attrs ->
+                        -- need to preserve wrap of type_
+                        TypeNotNull { attrs | ofType = t }
+
+                    _ ->
+                        t
+            )
+        |> Maybe.withDefault type_
+
+
+{-| return the underlying type (unboxed from list/not null)
+-}
+unboxedType : Type -> Type
+unboxedType type_ =
+    case type_ of
+        TypeScalar attrs ->
+            type_
+
+        TypeObject attrs ->
+            type_
+
+        TypeInterface attrs ->
+            type_
+
+        TypeUnion attrs ->
+            -- TODO: unsupported
+            type_
+
+        TypeEnum attrs ->
+            type_
+
+        TypeInput attrs ->
+            type_
+
+        TypeNotNull attrs ->
+            unboxedType attrs.ofType
+
+        TypeList attrs ->
+            unboxedType attrs.ofType
+
+
+{-| used to indicate if we select this SelectionSet, are we expecting another level of SelectionSets
+-}
+isComplicated : Type -> Bool
+isComplicated type_ =
+    case unboxedType type_ of
+        TypeScalar attrs ->
+            False
+
+        TypeObject attrs ->
+            True
+
+        TypeInterface attrs ->
+            True
+
+        TypeUnion attrs ->
+            -- TODO: unsupported
+            False
+
+        TypeEnum attrs ->
+            False
+
+        TypeInput attrs ->
+            True
+
+        TypeNotNull attrs ->
+            isComplicated attrs.ofType
+
+        TypeList attrs ->
+            isComplicated attrs.ofType
 
 
 

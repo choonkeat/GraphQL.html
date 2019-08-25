@@ -9,6 +9,7 @@ import Browser.Navigation
 import Dev
 import Dict exposing (Dict)
 import GraphQL exposing (typeName)
+import GraphQL.Form
 import Html exposing (Html, a, br, button, code, div, em, footer, form, h1, h2, h3, h5, hr, img, input, label, li, main_, nav, node, option, p, pre, select, small, span, strong, table, tbody, td, text, textarea, th, thead, tr, ul)
 import Html.Attributes exposing (attribute, checked, class, disabled, for, href, id, name, placeholder, rel, required, src, style, target, title, type_, value)
 import Html.Events exposing (on, onBlur, onClick, onInput, onSubmit)
@@ -16,6 +17,7 @@ import Http
 import Json.Decode
 import Json.Encode
 import List exposing (sum)
+import MaybeExtra exposing (boolMap, listWithoutNothing, maybeSomething, nothingIfBlank)
 import Regex
 import RemoteData
 import Route
@@ -903,40 +905,27 @@ type Selection
 
 
 type alias SelectionNestAttrs =
-    { type_ : GraphQL.Type, field : GraphQL.Field, selected : Bool, inputValueDict : InputValueDict, selectionDict : SelectionDict }
+    { type_ : GraphQL.Type, field : GraphQL.Field, selected : Bool, inputValueDict : Dict String GraphQL.Form.Value, selectionDict : SelectionDict }
 
 
 type alias SelectionDict =
     Dict String Selection
 
 
-type alias InputValueDict =
-    Dict String InputValue
-
-
-type InputValue
-    = InputLeaf { type_ : GraphQL.Type, description : Maybe String, required : Bool, selected : Bool, value : Maybe String }
-    | InputNest { type_ : GraphQL.Type, description : Maybe String, required : Bool, selected : Bool } InputValueDict
-    | InputUnion { required : Bool, selected : Bool } (List InputValue)
-    | InputEnum { type_ : GraphQL.Type, description : Maybe String, required : Bool, selected : Bool, value : Maybe String, options : List String }
-    | InputList { required : Bool, selected : Bool } (List InputValue)
-
-
 formQuery : String -> SelectionNestAttrs -> String
 formQuery key form =
     let
-        queries =
-            Dict.map inputValueQuery form.inputValueDict
+        namedArgs =
+            Dict.map GraphQL.Form.valueToNamedArgs form.inputValueDict
                 |> Dict.values
                 |> listWithoutNothing
 
         selectionInput =
-            case queries of
-                [] ->
-                    key
+            if List.isEmpty namedArgs then
+                key
 
-                _ ->
-                    key ++ "(" ++ String.join " " queries ++ ")"
+            else
+                key ++ "(" ++ String.join " " namedArgs ++ ")"
 
         subselect =
             selectionDictQuery form.selectionDict
@@ -980,66 +969,6 @@ selectionQuery key selection =
             Nothing
 
 
-inputValueQuery : String -> InputValue -> Maybe String
-inputValueQuery key inputValue =
-    inputValueQueryValue inputValue
-        |> Maybe.map (\s -> key ++ ":" ++ s)
-
-
-nothingIfBlank : Maybe String -> Maybe String
-nothingIfBlank stringMaybe =
-    case stringMaybe of
-        Just "" ->
-            Nothing
-
-        _ ->
-            stringMaybe
-
-
-inputValueQueryValue : InputValue -> Maybe String
-inputValueQueryValue inputValue =
-    case inputValue of
-        InputLeaf record ->
-            case typeName record.type_ of
-                Just "Boolean" ->
-                    nothingIfBlank record.value
-
-                Just "Int" ->
-                    nothingIfBlank record.value
-
-                Just "Float" ->
-                    nothingIfBlank record.value
-
-                _ ->
-                    Maybe.map Debug.toString (nothingIfBlank record.value)
-
-        InputNest record inputValueStringDict ->
-            Dict.map inputValueQuery inputValueStringDict
-                |> Dict.values
-                |> maybeJoinWrap " " "{" "}"
-
-        InputUnion record inputValueList ->
-            List.map inputValueQueryValue inputValueList
-                |> maybeJoinWrap " " "{" "}"
-
-        InputEnum record ->
-            nothingIfBlank record.value
-
-        InputList record inputValueList ->
-            List.map inputValueQueryValue inputValueList
-                |> maybeJoinWrap ", " "[" "]"
-
-
-maybeJoinWrap : String -> String -> String -> List (Maybe String) -> Maybe String
-maybeJoinWrap connect start end listMaybes =
-    case listWithoutNothing listMaybes of
-        [] ->
-            Nothing
-
-        list ->
-            Just (start ++ String.join connect list ++ end)
-
-
 
 -- Just (String.join ", " (List.map (inputValueQuery key) inputValueList))
 
@@ -1047,12 +976,19 @@ maybeJoinWrap connect start end listMaybes =
 renderForm : (String -> Maybe GraphQL.Type) -> List String -> String -> SelectionNestAttrs -> Html Msg
 renderForm typeLookup keys key form =
     let
+        inputForm k v =
+            GraphQL.Form.valueToHTML
+                (ModelChanged (setModelFormValue (List.append keys [ key, k ])))
+                (List.append keys [ key ])
+                k
+                v
+
         bodyFooter =
             [ if form.inputValueDict == Dict.empty then
                 text ""
 
               else
-                div [ class "card-body" ] (Dict.values (Dict.map (renderInputValue (List.append keys [ key ])) form.inputValueDict))
+                div [ class "card-body" ] (Dict.values (Dict.map inputForm form.inputValueDict))
             , div [ class "card-footer" ]
                 [ div [ class "form-group form-check" ] (Dict.values (Dict.map (chooseSelection typeLookup (List.append keys [ key ])) form.selectionDict))
                 ]
@@ -1103,7 +1039,7 @@ chooseSelection typeLookup keys key selection =
         SelectionPending record ->
             let
                 label =
-                    if isComplicated record.field.type_ then
+                    if GraphQL.isComplicated record.field.type_ then
                         [ text (key ++ " ")
                         , span [ class "ml-2 badge badge-secondary" ] [ text "..." ]
                         ]
@@ -1182,7 +1118,7 @@ setFormValue keys form value =
         x :: xs ->
             case Dict.get x form.inputValueDict of
                 Just _ ->
-                    { form | inputValueDict = Dict.update x (Maybe.map (setInputValue xs value)) form.inputValueDict }
+                    { form | inputValueDict = Dict.update x (Maybe.map (GraphQL.Form.valueFromString xs value)) form.inputValueDict }
 
                 Nothing ->
                     { form | selectionDict = Dict.update x (Maybe.map (setSelectionValue xs value)) form.selectionDict }
@@ -1212,132 +1148,6 @@ setSelectionValue keys value selection =
             unexpectedSelection
 
 
-setInputValue : List String -> String -> InputValue -> InputValue
-setInputValue keys value inputValue =
-    case inputValue of
-        InputLeaf record ->
-            InputLeaf { record | value = Just value }
-
-        InputNest record dict ->
-            case keys of
-                [] ->
-                    inputValue
-
-                x :: xs ->
-                    InputNest { record | selected = True } (Dict.update x (Maybe.map (setInputValue xs value)) dict)
-
-        InputUnion record inputValueList ->
-            InputUnion { record | selected = maybeBool (Just value) } (List.map (setInputValue keys value) inputValueList)
-
-        InputEnum record ->
-            InputEnum { record | value = Just value }
-
-        InputList record inputValueList ->
-            InputList { record | selected = maybeBool (Just value) } (List.map (setInputValue keys value) inputValueList)
-
-
-maybeInvalidClass : Bool -> Maybe String -> String
-maybeInvalidClass required value =
-    case ( required, maybeSomething (nothingIfBlank value) ) of
-        ( True, False ) ->
-            "is-invalid"
-
-        a ->
-            ""
-
-
-renderInputValue : List String -> String -> InputValue -> Html Msg
-renderInputValue keys key inputValue =
-    case inputValue of
-        InputLeaf record ->
-            case ( record.selected, typeName record.type_ ) of
-                -- ( False, _ ) ->
-                --     notChosen key
-                ( _, Just "Boolean" ) ->
-                    if record.required then
-                        UI.inputCheckbox
-                            { label = [ text (humanize key) ]
-                            , description = UI.description record.description
-                            , attrs =
-                                [ checked (maybeBool record.value)
-                                , value (boolMap (maybeBool record.value) "false" "true") -- opposite
-                                , onInput (ModelChanged (setModelFormValue (List.append keys [ key ])))
-                                ]
-                            }
-
-                    else
-                        UI.inputChoices (ModelChanged (setModelFormValue (List.append keys [ key ])))
-                            { required = record.required
-                            , label = [ text (humanize key) ]
-                            , description = UI.description record.description
-                            , attrs = [ class ("custom-select " ++ maybeInvalidClass record.required record.value) ]
-                            , options = [ "true", "false" ]
-                            }
-
-                ( _, Just "Int" ) ->
-                    UI.inputString
-                        { label = [ text (humanize key) ]
-                        , htmlType = "number"
-                        , value = Maybe.withDefault "" record.value
-                        , description = UI.description record.description
-                        , attrs =
-                            [ class ("form-control " ++ maybeInvalidClass record.required record.value)
-                            , onInput (ModelChanged (setModelFormValue (List.append keys [ key ])))
-                            ]
-                        }
-
-                ( _, Just "Float" ) ->
-                    UI.inputString
-                        { label = [ text (humanize key) ]
-                        , htmlType = "number"
-                        , value = Maybe.withDefault "" record.value
-                        , description = UI.description record.description
-                        , attrs =
-                            [ class ("form-control " ++ maybeInvalidClass record.required record.value)
-                            , onInput (ModelChanged (setModelFormValue (List.append keys [ key ])))
-                            ]
-                        }
-
-                _ ->
-                    UI.inputString
-                        { label = [ text (humanize key) ]
-                        , htmlType = "text"
-                        , value = Maybe.withDefault "" record.value
-                        , description = UI.description record.description
-                        , attrs =
-                            [ class ("form-control " ++ maybeInvalidClass record.required record.value)
-                            , onInput (ModelChanged (setModelFormValue (List.append keys [ key ])))
-                            ]
-                        }
-
-        InputNest record inputValueStringDict ->
-            div [ class "card mb-3" ]
-                [ h5 [ class "card-header", style "text-transform" "capitalize", title (Debug.toString record) ] [ text (humanize key) ]
-                , div [ class "card-body " ]
-                    [ text (Maybe.withDefault "" record.description)
-                    , div [] (Dict.values (Dict.map (renderInputValue (List.append keys [ key ])) inputValueStringDict))
-                    ]
-                , div [ class "col" ] [ UI.description record.description ]
-                ]
-
-        InputUnion record inputValueList ->
-            div []
-                (List.intersperse (hr [] []) (List.map (renderInputValue keys key) inputValueList))
-
-        InputEnum record ->
-            UI.inputChoices (ModelChanged (setModelFormValue (List.append keys [ key ])))
-                { required = record.required
-                , label = [ text (humanize key) ]
-                , description = UI.description record.description
-                , attrs = [ class ("custom-select " ++ maybeInvalidClass record.required record.value) ]
-                , options = record.options
-                }
-
-        InputList record inputValueList ->
-            div []
-                (List.intersperse (hr [] []) (List.map (renderInputValue keys key) inputValueList))
-
-
 graphqlFieldToForm : (String -> Maybe GraphQL.Type) -> GraphQL.Type -> GraphQL.Field -> Bool -> SelectionNestAttrs
 graphqlFieldToForm typeLookup graphqlType graphqlField selected =
     { type_ = graphqlType
@@ -1347,13 +1157,13 @@ graphqlFieldToForm typeLookup graphqlType graphqlField selected =
         List.foldl
             (\arg dict ->
                 Dict.insert arg.name
-                    (graphqlTypeToInputValue typeLookup Nothing arg.description (expandedType typeLookup arg.type_))
+                    (GraphQL.Form.valueFromGraphqlType typeLookup Nothing arg.description (GraphQL.expandedType typeLookup arg.type_))
                     dict
             )
             Dict.empty
             graphqlField.args
     , selectionDict =
-        expandedType typeLookup graphqlField.type_
+        GraphQL.expandedType typeLookup graphqlField.type_
             |> graphqlTypeToSelection typeLookup graphqlField.description graphqlField.name
     }
 
@@ -1413,7 +1223,7 @@ graphqlTypeToSelection typeLookup description name graphqlType =
         foldlNameSelection fields =
             List.foldl
                 (\field dict ->
-                    expandedType typeLookup field.type_
+                    GraphQL.expandedType typeLookup field.type_
                         |> insertNameSelection dict field
                 )
                 Dict.empty
@@ -1444,255 +1254,15 @@ graphqlTypeToSelection typeLookup description name graphqlType =
             singleNameSelection attrs
 
         GraphQL.TypeNotNull attrs ->
-            expandedType typeLookup attrs.ofType
+            GraphQL.expandedType typeLookup attrs.ofType
                 |> graphqlTypeToSelection typeLookup description name
 
         GraphQL.TypeList attrs ->
-            expandedType typeLookup attrs.ofType
+            GraphQL.expandedType typeLookup attrs.ofType
                 |> graphqlTypeToSelection typeLookup description name
-
-
-graphqlTypeToInputValue : (String -> Maybe GraphQL.Type) -> Maybe String -> Maybe String -> GraphQL.Type -> InputValue
-graphqlTypeToInputValue typeLookup value description graphqlType =
-    case graphqlType of
-        GraphQL.TypeScalar attrs ->
-            InputLeaf
-                { description = description
-                , type_ = graphqlType
-                , required = maybeSomething value
-                , selected = maybeSomething value
-                , value = value
-                }
-
-        GraphQL.TypeObject attrs ->
-            -- TODO: graphqlType.interfaces : Maybe (List Type)
-            InputNest
-                { description = description
-                , type_ = graphqlType
-                , required = maybeSomething value
-                , selected = maybeSomething value
-                }
-                (attrs.fields
-                    |> Maybe.map
-                        (List.foldl
-                            (\field dict ->
-                                Dict.insert field.name (graphqlFieldToInputType typeLookup value field) dict
-                            )
-                            Dict.empty
-                        )
-                    |> Maybe.withDefault Dict.empty
-                )
-
-        GraphQL.TypeInterface attrs ->
-            -- TODO: graphqlType.possibleTypes : Maybe (List Type)
-            InputNest
-                { description = description
-                , type_ = graphqlType
-                , required = maybeSomething value
-                , selected = maybeSomething value
-                }
-                (attrs.fields
-                    |> Maybe.map
-                        (List.foldl
-                            (\field dict ->
-                                Dict.insert field.name (graphqlFieldToInputType typeLookup value field) dict
-                            )
-                            Dict.empty
-                        )
-                    |> Maybe.withDefault Dict.empty
-                )
-
-        GraphQL.TypeUnion attrs ->
-            -- TODO: unsupported
-            attrs.possibleTypes
-                |> Maybe.map (List.map (graphqlTypeToInputValue typeLookup value description))
-                |> Maybe.map (InputUnion { required = maybeSomething value, selected = maybeSomething value })
-                |> Maybe.withDefault (InputUnion { required = maybeSomething value, selected = maybeSomething value } [])
-
-        GraphQL.TypeEnum attrs ->
-            InputEnum
-                { description = description
-                , type_ = graphqlType
-                , required = maybeSomething value
-                , selected = maybeSomething value
-                , value = value
-                , options =
-                    attrs.enumValues
-                        |> Maybe.map (List.map .name)
-                        |> Maybe.withDefault []
-                }
-
-        GraphQL.TypeInput attrs ->
-            InputNest
-                { description = description
-                , type_ = graphqlType
-                , required = maybeSomething value
-                , selected = maybeSomething value
-                }
-                (attrs.inputFields
-                    |> Maybe.map
-                        (List.foldl
-                            (\graphqlInputValue dict ->
-                                expandedType typeLookup graphqlInputValue.type_
-                                    |> graphqlTypeToInputValue typeLookup value graphqlInputValue.description
-                                    |> (\inputValue -> Dict.insert graphqlInputValue.name inputValue dict)
-                            )
-                            Dict.empty
-                        )
-                    |> Maybe.withDefault Dict.empty
-                )
-
-        GraphQL.TypeNotNull attrs ->
-            expandedType typeLookup attrs.ofType
-                |> graphqlTypeToInputValue typeLookup (Just "") description
-
-        GraphQL.TypeList attrs ->
-            -- TODO:
-            -- { name : Maybe String
-            -- , description : Maybe String
-            -- , ofType : Type
-            -- }
-            InputList { required = maybeSomething value, selected = maybeSomething value } []
-
-
-graphqlFieldToInputType : (String -> Maybe GraphQL.Type) -> Maybe String -> GraphQL.Field -> InputValue
-graphqlFieldToInputType typeLookup value graphqlField =
-    -- GraphQL.Field = { name : String
-    -- , description : Maybe String
-    -- , args : List InputValue
-    -- , type_ : Type
-    -- , isDeprecated : Bool
-    -- , deprecationReason : Maybe String
-    -- }
-    InputLeaf
-        { description = Just "graphqlFieldToInputType"
-        , type_ = expandedType typeLookup graphqlField.type_
-        , required = maybeSomething value
-        , selected = False
-        , value = Nothing
-        }
-
-
-boolMap : Bool -> a -> a -> a
-boolMap bool true false =
-    if bool then
-        true
-
-    else
-        false
-
-
-maybeBool : Maybe String -> Bool
-maybeBool boolMaybe =
-    case boolMaybe of
-        Just "true" ->
-            True
-
-        _ ->
-            False
-
-
-maybeSomething : Maybe a -> Bool
-maybeSomething =
-    Maybe.map (\_ -> True) >> Maybe.withDefault False
-
-
-listWithoutNothing : List (Maybe a) -> List a
-listWithoutNothing =
-    List.foldl (\m sum -> List.append sum (Maybe.withDefault [] (Maybe.map (\a -> [ a ]) m))) []
-
-
-humanize : String -> String
-humanize string =
-    if String.endsWith "_id" string then
-        String.dropRight 3 (String.replace "_" " " string) ++ " ID"
-
-    else
-        String.replace "_" " " string
 
 
 maybeRender : (a -> Html b) -> Maybe a -> Html b
 maybeRender function aMaybe =
     Maybe.map function aMaybe
         |> Maybe.withDefault (text "")
-
-
-{-| expand a given type through `typeLookup`
--}
-expandedType : (String -> Maybe GraphQL.Type) -> GraphQL.Type -> GraphQL.Type
-expandedType typeLookup type_ =
-    typeName type_
-        |> Maybe.andThen typeLookup
-        |> Maybe.map
-            (\t ->
-                case type_ of
-                    GraphQL.TypeNotNull attrs ->
-                        -- need to preserve wrap of type_
-                        GraphQL.TypeNotNull { attrs | ofType = t }
-
-                    _ ->
-                        t
-            )
-        |> Maybe.withDefault type_
-
-
-{-| return the underlying type (unboxed from list/not null)
--}
-unboxedType : GraphQL.Type -> GraphQL.Type
-unboxedType type_ =
-    case type_ of
-        GraphQL.TypeScalar attrs ->
-            type_
-
-        GraphQL.TypeObject attrs ->
-            type_
-
-        GraphQL.TypeInterface attrs ->
-            type_
-
-        GraphQL.TypeUnion attrs ->
-            -- TODO: unsupported
-            type_
-
-        GraphQL.TypeEnum attrs ->
-            type_
-
-        GraphQL.TypeInput attrs ->
-            type_
-
-        GraphQL.TypeNotNull attrs ->
-            unboxedType attrs.ofType
-
-        GraphQL.TypeList attrs ->
-            unboxedType attrs.ofType
-
-
-{-| used to indicate if we select this SelectionSet, are we expecting another level of SelectionSets
--}
-isComplicated : GraphQL.Type -> Bool
-isComplicated type_ =
-    case unboxedType type_ of
-        GraphQL.TypeScalar attrs ->
-            False
-
-        GraphQL.TypeObject attrs ->
-            True
-
-        GraphQL.TypeInterface attrs ->
-            True
-
-        GraphQL.TypeUnion attrs ->
-            -- TODO: unsupported
-            False
-
-        GraphQL.TypeEnum attrs ->
-            False
-
-        GraphQL.TypeInput attrs ->
-            True
-
-        GraphQL.TypeNotNull attrs ->
-            isComplicated attrs.ofType
-
-        GraphQL.TypeList attrs ->
-            isComplicated attrs.ofType
