@@ -269,9 +269,7 @@ endpointForm model =
                         [ [ text "e.g. " ]
                         , List.intersperse (text ", ")
                             (List.map exemplify
-                                [ "https://metaphysics-production.artsy.net/"
-                                , "https://graphql.anilist.co/"
-                                , "https://graphql-pokemon.now.sh/?"
+                                [ "https://graphql.anilist.co/"
                                 ]
                             )
                         , [ text "; see "
